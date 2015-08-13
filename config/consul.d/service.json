@@ -1,0 +1,11 @@
+{
+  "service": {
+    "name": "rabbitmqwatcher",
+    "tags": [
+      "AS",
+      "production",
+      "AS_rabbitmqwatcher"
+    ],
+    "port": 80
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "ca_file": "/opt/config/consul.d/ssl/ca.cert",
+  "cert_file": "/opt/config/consul.d/ssl/consul.cert",
+  "key_file": "/opt/config/consul.d/ssl/consul.key",
+  "verify_incoming": true,
+  "verify_outgoing": true
+}

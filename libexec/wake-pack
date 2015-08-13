@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/root'
+require_relative '../share/wake/json_file'
+require_relative '../share/wake/run'
+require_relative '../share/wake/config'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake seed [options]"
+
+  opts.required :t, :type,     "The type of app"
+  opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :v, :verbose,  "Run verbosely"
+end
+
+manifest = JSONFile.new("manifest.json")
+platform = manifest.require("platform")
+app      = manifest.require("app")
+
+registry_host = WakeConfig.require("docker.registry.host")
+
+Dir.chdir(WAKE_ROOT)
+
+run! "packer build -var 'platform=#{platform}' -var 'app=#{app}' -var 'type=#{parser[:type]}' -var 'rev=#{parser[:rev]}' templates/service.json", parser[:verbose]
+
+image_name = "wake-services/#{app}:#{rev}"
+
+run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
+run! "docker push #{registry_host}/#{image_name}", parser[:verbose]

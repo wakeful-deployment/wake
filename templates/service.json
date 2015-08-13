@@ -1,0 +1,55 @@
+{
+  "builders": [
+    {
+      "type": "docker",
+      "image": "wake-platforms/{{user `platform`}}",
+      "commit": true,
+      "pull": false
+    }
+  ],
+
+  "provisioners": [
+    {
+      "type": "shell-local",
+      "command": "rm -rf tmp/*"
+    },
+    {
+      "type": "shell-local",
+      "command": "render -app {{user `app`}} -rev {{user `rev`}} -type {{user `type`}}"
+    },
+    {
+      "type": "file",
+      "source": "./tmp/",
+      "destination": "/opt/assets"
+    },
+    {
+      "type": "file",
+      "source": "./config/",
+      "destination": "/opt/config"
+    },
+    {
+      "type": "file",
+      "source": "./services/",
+      "destination": "/opt/services"
+    },
+    {
+      "type": "shell",
+      "inline": "/opt/services/init.sh {{user `app`}} {{user `rev`}} {{user `type`}} && sleep 5",
+      "inline_shebang": "/bin/bash"
+    },
+    {
+      "type": "shell",
+      "inline": "rm -rf /opt/assets /opt/services",
+      "inline_shebang": "/bin/bash"
+    }
+  ],
+
+  "post-processors": [
+    {
+      "type": "docker-tag",
+      "repository": "wake-services/{{user `app`}}",
+      "tag": "{{user `rev`}}",
+      "force": true
+    }
+  ]
+}

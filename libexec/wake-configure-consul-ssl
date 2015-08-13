@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake configure-consul-ssl [options]"
+
+  opts.required("-p", "--path=REQUIRED", "Specify path to ssl certs") do |o|
+    opts[:path] = o.gsub(%r{/$}, "")
+  end
+end
+
+config_path = File.expand_path(File.join(__FILE__, "..", "..", "config", "consul.d", "ssl"))
+
+exec "cp #{parser[:path]}/*  #{config_path}"

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+app_name=`cat /opt/app_name`
+server_type=`cat /opt/app_servertype`
+json="{\"service\":{\"name\":\"$app_name\",\"tags\":[\"$server_type\"]}}"
+echo $json | tee /opt/config/consul.d/service.json
+
+: ${CONSULBOOTSTRAP:="1"}
+: ${CONSULJOIN:="127.0.0.1"}
+
+if [[ "${app_name}" == "consul" ]]; then
+  echo "{\"server\": true, \"bootstrap_expect\": $CONSULBOOTSTRAP}" | tee /opt/config/consul.d/server.json
+fi
+echo "{\"start_join\": [\"$CONSULJOIN\"] }" | tee /opt/config/consul.d/join.json
+
+export GOMAXPROCS=`grep processor /proc/cpuinfo | wc -l`
+exec /opt/bin/consul agent -config-dir /opt/config/consul.d

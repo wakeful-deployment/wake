@@ -1,0 +1,36 @@
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "eu-west-1",
+      "source_ami": "ami-896c96fe",
+      "instance_type": "c3.large",
+      "ssh_username": "ubuntu",
+      "security_group_id": "sg-64e47013",
+      "ami_name": "docker_registry_{{timestamp}}"
+    }
+  ],
+
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "./config/ssh.d",
+      "destination": "/home/ubuntu/assets"
+    },
+    {
+      "type": "file",
+      "source": "./scripts/registry.sh",
+      "destination": "/home/ubuntu/registry.sh"
+    },
+    {
+      "type": "shell",
+      "inline": "sudo cp -r assets/ registry.sh /opt/",
+      "inline_shebang": "/bin/bash"
+    },
+    {
+      "type": "shell",
+      "inline": "sudo bash /opt/registry.sh",
+      "inline_shebang": "/bin/bash"
+    }
+  ]
+}
