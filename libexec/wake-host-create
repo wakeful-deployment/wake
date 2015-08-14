@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/root'
+require_relative '../share/wake/config'
+require_relative '../share/wake/run'
+
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake host create [options]"
+
+  opts.required :h, :host, "Specify host"
+  opts.boolean  :v, :verbose,  "Run verbosely"
+end
+
+VALID_HOSTS = [:azure]
+
+def validate_host(host)
+  unless VALID_HOSTS.include?(host.to_sym)
+    panic!("#{host} is not a valid host. The following hosts are supported: #{VALID_HOSTS.join(",")}")
+  end
+end
+
+host = parser[:host].to_sym
+
+validate_host(host)
+
+if host == :azure
+  # TODO: Ensure that the packer azure plugin is installed:
+  # https://github.com/MSOpenTech/packer-azure
+
+  azure_template = File.join(WAKE_ROOT, "hosts","azure.json")
+  publish_settings = File.join(CONFIG_DIR, "azure", "wake.publishsettings")
+
+  unless File.exists?(publish_settings)
+    panic!(
+"""
+Could not find azure publish settings in wake config directory.
+Please add your publish settings to '#{publish_settings}'.
+
+You can download the settings here: https://manage.windowsazure.com/publishsettings
+"""
+    )
+  end
+
+  azure_subscription_name = WakeConfig.get_or_ask_for("azure.subscription.name")
+  azure_storage_account = WakeConfig.get_or_ask_for("azure.storage.account")
+
+  run! "packer build -var 'ps=#{publish_settings}' -var 'sn=#{azure_subscription_name}' -var 'sa=#{azure_storage_account}' #{azure_template}", parser[:verbose]
+end
