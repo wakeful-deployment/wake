@@ -8,7 +8,7 @@ require_relative '../share/wake/run'
 
 
 parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake host create [options]"
+  opts.banner = "Usage: wake host image [options]"
 
   opts.required :h, :host, "Specify host"
   opts.boolean  :v, :verbose,  "Run verbosely"

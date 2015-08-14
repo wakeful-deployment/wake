@@ -3,5 +3,7 @@
 require_relative '../share/wake/parser'
 
 OptsParser.parse do |opts|
-  opts.subcommand :create, 'wake-host-create'
+  opts.banner = "Usage: wake host <command>"
+
+  opts.subcommand :image, 'wake-host-image'
 end

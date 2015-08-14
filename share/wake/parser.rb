@@ -69,13 +69,12 @@ class OptsParser
   end
 
   def parse!
-    if subcommand = fetch_subcommand
+    if subcommand = fetch_subcommand_file
       execute_subcommand(subcommand)
     end
 
     if @received.none? && @subcommands.any?
-      subcommand_names = @subcommands.map{|sc| sc.first }
-      panic! "missing required subcommands: #{subcommand_names.join(",")}"
+      panic! "missing required command \n#{usage}"
     end
 
     perform_top_level_parse!
@@ -87,14 +86,14 @@ class OptsParser
     missing_keys = @required - @received
 
     if missing_keys.any?
-      panic! "missing required flag: #{missing_keys.first}\n#{@parser}"
+      panic! "missing required flag: #{missing_keys.first}\n#{usage}"
     end
 
     @boolean.each do |name|
       self[name] = !!self[name]
     end
   rescue OptionParser::MissingArgument, OptionParser::InvalidOption
-    panic! "#{$!}\n#{@parser}"
+    panic! "#{$!}\n#{usage}"
   end
 
   def execute_subcommand(command)
@@ -106,10 +105,23 @@ class OptsParser
   end
 
   def fetch_subcommand
-    name, file = (name = ARGV.first) &&
+    (name = ARGV.first) &&
       !name.match(/^-/) &&
       @subcommands.find{|sc| sc.first == name.to_sym}
+  end
+
+  def fetch_subcommand_file
+    _, file = fetch_subcommand
     file
+  end
+
+  def usage
+    if @subcommands.any?
+      subcommands = @subcommands.map{|sc| sc.first}
+      "#{@parser}\nAvailable commands:\n* #{subcommands.join("\n* ")}"
+    else
+      @parser
+    end
   end
 
   def validate_short_name(short_name)
