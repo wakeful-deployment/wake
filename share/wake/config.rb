@@ -1,7 +1,8 @@
 require "fileutils"
 require_relative "json_file"
 
-path = File.expand_path("~/.wake/config")
+CONFIG_DIR = File.expand_path(File.join("~", ".wake"))
+path = File.expand_path(File.join(CONFIG_DIR, "config"))
 
 unless File.exists?(path)
   FileUtils.mkdir_p(File.dirname(path))

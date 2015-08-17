@@ -11,9 +11,14 @@ class OptsParser
     @required = []
     @optional = []
     @boolean  = []
+    @subcommands = []
     @options  = {}
     @parser   = OptionParser.new
     yield self
+  end
+
+  def subcommand(name, file)
+    @subcommands << [name, file]
   end
 
   def banner=(banner)
@@ -64,19 +69,59 @@ class OptsParser
   end
 
   def parse!
+    if subcommand = fetch_subcommand_file
+      execute_subcommand(subcommand)
+    end
+
+    if @received.none? && @subcommands.any?
+      panic! "missing required command \n#{usage}"
+    end
+
+    perform_top_level_parse!
+  end
+
+  def perform_top_level_parse!
     @parser.parse!
 
     missing_keys = @required - @received
 
     if missing_keys.any?
-      panic! "missing required flag: #{missing_keys.first}\n#{@parser}"
+      panic! "missing required flag: #{missing_keys.first}\n#{usage}"
     end
 
     @boolean.each do |name|
       self[name] = !!self[name]
     end
   rescue OptionParser::MissingArgument, OptionParser::InvalidOption
-    panic! "#{$!}\n#{@parser}"
+    panic! "#{$!}\n#{usage}"
+  end
+
+  def execute_subcommand(command)
+    file = File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "libexec", command))
+    cmd = "#{file} #{ARGV.drop(1).join(" ")}"
+
+    exec cmd
+    exit(0)
+  end
+
+  def fetch_subcommand
+    (name = ARGV.first) &&
+      !name.match(/^-/) &&
+      @subcommands.find{|sc| sc.first == name.to_sym}
+  end
+
+  def fetch_subcommand_file
+    _, file = fetch_subcommand
+    file
+  end
+
+  def usage
+    if @subcommands.any?
+      subcommands = @subcommands.map{|sc| sc.first}
+      "#{@parser}\nAvailable commands:\n* #{subcommands.join("\n* ")}"
+    else
+      @parser
+    end
   end
 
   def validate_short_name(short_name)
