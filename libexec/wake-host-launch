@@ -4,47 +4,49 @@ require 'bundler/setup'
 require 'azure'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/config'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/azure/config'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake host launch [options]"
 
-  opts.required :i, :image, "Specify the id of the image to be run on the host"
+  opts.required :p, :provider, "Specify the cloud provider on which to create the host"
+  opts.optional :n, :name, "Name of the host to be deployed"
+  opts.optional :i, :image, "Specify the id of the image to be run on the host"
+  opts.optional :l, :location, "Specify the location where the host will be deplayed"
+  opts.optional :s, :size, "Specify the size of the host"
   opts.boolean  :v, :verbose,  "Run verbosely"
 end
 
-management_certificate_path = File.join(CONFIG_DIR, "azure", "wake.pfx")
-unless File.exists?(management_certificate_path)
-  publish_settings = File.join(CONFIG_DIR, "azure", "wake.publishsettings")
-  unless File.exists?(publish_settings)
-    panic!(
-"""
-Could not find azure publish settings in wake config directory.
-Please add your publish settings to '#{publish_settings}'.
+if pasrer[:provider] == :azure
+  image_name = parser[:image] || WakeConfig.get_or_ask_for("azure.host.default_image_name")
+  management_certificate_path = Wake::Azure::Config.get_management_certificate
+  unless File.exists?(management_certificate_path)
+    publish_settings = Wake::Azure::Config.get_publish_settings!
 
-You can download the settings here: https://manage.windowsazure.com/publishsettings
-"""
-    )
+    $stderr.puts "TODO: provider instructions on how to create a management certificate from the publish settings located here: #{publish_settings}"
   end
 
-  #TODO create pfx file!
+  Azure.management_certificate = management_certificate_path
+  Azure.subscription_id = WakeConfig.get_or_ask_for("azure.subscription.id")
+
+  vm_management = Azure.vm_management
+
+  location = parser[:location] || WakeConfig.get_or_ask_for("azure.host.default_location")
+
+  params = {
+    vm_name: parser[:name] || "azure-virtual-machine",
+    vm_user: `whoami`, #TODO: support Windows
+    image: image_name,
+    location: location
+  }
+
+  options = {
+    :private_key_file => File.expand_path('~/.ssh/id_rsa'),
+    :vm_size => parser[:size] || WakeConfig.get_or_ask_for("azure.host.default_size")
+  }
+
+  vm = vm_management.create_virtual_machine(params,options)
+
+  puts "Successfully created a host with IP address: #{vm.ipaddress}"
 end
-
-Azure.management_certificate = management_certificate_path
-Azure.subscription_id = WakeConfig.get_or_ask_for("azure.subscription.id")
-
-vm_management = Azure.vm_management
-
-params = {
-  vm_name: 'test',
-  vm_user: 'ryan',
-  image: parser[:image],
-  password: '',
-  location: 'East US'
-}
-
-options = {
-  :private_key_file => '~/.ssh/id_rsa',
-  :vm_size => 'Small',
-}
-
-vm_management.create_virtual_machine(params,options)

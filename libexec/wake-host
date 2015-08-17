@@ -6,4 +6,5 @@ OptsParser.parse do |opts|
   opts.banner = "Usage: wake host <command>"
 
   opts.subcommand :image, 'wake-host-image'
+  opts.subcommand :launch, 'wake-host-launch'
 end

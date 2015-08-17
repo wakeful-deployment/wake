@@ -90,7 +90,7 @@ class OptsParser
     end
 
     @boolean.each do |name|
-      self[name] = !!self[name]
+      self[name] = !!self[name] unless self[name].nil?
     end
   rescue OptionParser::MissingArgument, OptionParser::InvalidOption
     panic! "#{$!}\n#{usage}"

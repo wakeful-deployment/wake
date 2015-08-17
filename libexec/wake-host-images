@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+
+require 'bundler/setup'
+require 'azure'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/config'
+require_relative '../share/wake/azure/config'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake host launch [options]"
+
+  opts.required :p, :provider, "Select the cloud provider for which you want to show the images"
+  opts.boolean :a, :all, "Show all images available including public ones"
+end
+
+if parser[:provider].to_sym == :azure
+  management_certificate_path = Wake::Azure::Config.get_management_certificate!
+  Azure.management_certificate = management_certificate_path
+  Azure.subscription_id = WakeConfig.get_or_ask_for("azure.subscription.id")
+
+  vm_image_management = Azure.vm_image_management
+  images =  vm_image_management.list_virtual_machine_images.select do |i|
+    parser[:all] || i.category == "User"
+  end
+
+  puts "There are #{images.count} images"
+  puts
+
+  images.each do |i|
+    puts i.name
+  end
+end

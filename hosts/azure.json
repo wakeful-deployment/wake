@@ -10,7 +10,7 @@
       "os_image_label": "Ubuntu Server 14.04 LTS",
       "location": "East US",
       "instance_size": "Small",
-      "user_image_label": "PackerMade_Ubuntu_Serv14"
+      "user_image_label": "{{user `name`}}"
     }
   ],
   "provisioners": [
