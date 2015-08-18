@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/azure/virtual_machines'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake host terminate [options]"
+
+  opts.required :p, :provider, "Select the cloud provider for which you want to show the images"
+  opts.required :i, :id, "Specify the id of the host to terminate"
+end
+
+if parser[:provider].to_sym == :azure
+  name, cloud_service = parser[:id].split(":")
+  vm_manager = Wake::Azure::VirtualMachines.vm_manager
+  vm_manager.delete_virtual_machine(name, cloud_service)
+end
