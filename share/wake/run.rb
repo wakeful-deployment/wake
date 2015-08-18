@@ -5,13 +5,11 @@ module Kernel
   def run(cmd, verbose = false)
     Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
       out, err = [[], []]
-      while line = stdout.gets
-        puts line if verbose
-        out << line
-      end
-      while line = stderr.gets
-        puts line if verbose
-        err << line
+      while (stdout = stdout.gets) || (stderr = stderr.gets)
+        puts stdout if verbose && stdout
+        puts stderr if verbose && stderr
+        out << stdout if stdout
+        err << stderr if stderr
       end
 
       exit_code = wait_thr.value
@@ -20,14 +18,12 @@ module Kernel
   end
 
   def run!(cmd, verbose = false)
-    if verbose
-      system cmd
-    else
-      `#{cmd}`
-    end
+    out, err, code = run(cmd, verbose)
 
-    unless $?.success?
+    unless code.success?
       panic! "`#{cmd}` failed"
     end
+
+    [out,err]
   end
 end

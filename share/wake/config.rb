@@ -39,6 +39,10 @@ module WakeConfig
     config.require(key)
   end
 
+  def get(key)
+    config[key]
+  end
+
   def get_or_ask_for(key)
     config[key] || ask_for(key)
   end
