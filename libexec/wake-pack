@@ -22,7 +22,7 @@ registry_host = WakeConfig.require("docker.registry.host")
 
 Dir.chdir(WAKE_ROOT)
 
-run! "packer build -var 'platform=#{platform}' -var 'app=#{app}' -var 'type=#{parser[:type]}' -var 'rev=#{parser[:rev]}' templates/service.json", parser[:verbose]
+raise "wake-pack doesn't work yet"
 
 image_name = "wake-services/#{app}:#{rev}"
 

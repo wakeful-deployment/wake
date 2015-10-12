@@ -37,9 +37,7 @@ if provider == :azure
   azure_subscription_name = WakeConfig.get_or_ask_for("azure.subscription.name")
   azure_storage_account = WakeConfig.get_or_ask_for("azure.storage.account")
 
-  out, _ = run! "packer build -var 'ps=#{publish_settings}' -var 'sn=#{azure_subscription_name}' -var 'sa=#{azure_storage_account}' -var 'name=image_name' #{azure_template}", parser[:verbose]
-
-  image_name = out.last.match(/imageName: '([^']*)',/).to_a[1]
+  raise "wake-host-image doesn't work yet"
 
   puts "Successfull created image with name: #{image_name}"
 
