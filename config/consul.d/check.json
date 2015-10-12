@@ -1,8 +1,0 @@
-{
-  "check": {
-    "id": "connecty",
-    "name": "Connecty Healthy Check",
-    "script": "nc -z localhost 5678 || exit 2",
-    "interval": "2s"
-  }
-}

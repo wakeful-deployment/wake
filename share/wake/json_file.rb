@@ -1,49 +1,48 @@
 require 'json'
 require_relative "requireable_hash"
-require_relative "panic"
 
 class JSONFile
   def initialize(path)
     @path = path
     @name = File.basename(path)
-    @content = RequireableHash.new(@path, JSON.parse(File.read(path)))
+    @content = RequireableHash.new(JSON.parse(File.read(path)).to_hash)
   rescue Errno::ENOENT
-    panic! "#{@path} not found"
+    fail "#{@path} not found"
   rescue JSON::ParserError
-    panic! "#{@path} is malformed"
+    fail "#{@path} is malformed"
+  end
+
+  def key?(key)
+    @content.key?(key)
   end
 
   def [](key)
-    key.split(".").reduce(@content) do |c, name|
-      c[name] || return
-    end
+    @content[key]
   end
 
   def []=(key, value)
-    update(key, value)
+    @content.update(key, value)
   end
 
   def require(key)
-    key.split(".").reduce(@content) do |c, name|
-      c.require(name)
-    end
+    @content.require(key)
   rescue RequireableHash::Error
-    panic! "#{@path} is missing the required key: #{key}"
+    fail "#{@path} is missing the required key: #{key}"
   end
 
   def update(key, value)
-    keys = key.split(".")
-    traversal_keys = keys[0..-2]
-    bottom_hash = traversal_keys.reduce(@content) do |h, k|
-      h[k] ||= {}
-    end
-    bottom_hash[keys.last] = value
+    @content.update(key, value)
+  end
+
+  def delete(key)
+    @content.delete(key)
   end
 
   def persist
     File.open(@path, "w") do |f|
       f << JSON.pretty_generate(@content)
     end
+    nil
   end
 
   def empty?

@@ -5,198 +5,268 @@ environemnts.
 
 # Prereqs
 
-* packer
+* docker
+* docker-machine
+
+## Azure
+
+* Service principal is created and has the correct roles
+
+_NOTE: There will be a tool to help setup a service principal
+eventually. In the meantime please consult the azure ruby sdk README
+for the most up to date information._
 
 # Terms
 
-**host**: a virtual server running a docker host (sometimes called an
-_instance_)
+**host**: a virtual server running a docker host
 
-**cluster**: is a collection of hosts managed together and registerd in
-a consul registry
+**host image**: a virtual server disk image pre-setup and ready to run
+services
 
-**application**: is a collection of processes defined by a
-`manifest.json` and stored in a git repo
+**node**: a host that is registered into consul
 
-**instance**: is a running application hosted in a container on a host
-in a cluster
+**cluster**: is a collection of hosts/nodes managed together as a unit
 
-**container**: a docker container
+**application**: is a list of processes defined by a `manifest.json` and
+stored in a git repo
 
-# ???
+**service**: is a running application process hosted in a container on
+a host in a cluster and registered in consul
 
-Wake packages applications into containers which can be deployed
-into a cluster. Wake uses consul to keep track of hosts and applications
-in a cluster. Basically a cluster is a consul master with 0 or more
-registered hosts and 0 more registered applications on those hosts.
+**container**: a docker container to run one service on a host/node
+
+# WTF???
+
+Wake packages application's processes into containers which can be
+deployed into a cluster as a service. Wake uses consul to keep track of
+nodes and services in a cluster. Basically a cluster is a consul master
+with 0 or more registered nodes and 0 more registered services on those
+nodes.
+
+# CLI conventions
+
+Every command supports these three flags:
+
+* `-v` or `--verbose` which will output lots of extra logging
+  information
+* `-V` or `--very-verbose` which will output a ton of extra logging
+  information that is mostly unecessary
+* `-h` or `--help` which will output the usage information
 
 # Cluster
 
-A cluster is comprised of at least these instances on hosts:
+A cluster is a collection of hosts (nodes) and applications (services).
+A cluster has one consul database which is used to store and validate
+the details of the cluster. Which apps should be runing where, how many
+nodes there are, and all other cluster related questions should be
+answerable from the consul database.
 
-* consul master
-* 2 consul slaves
-* rsyslog master
+The consul database is also used to store secrets facilitated by vault.
 
-Clusters are kept track of in `~/.wake/clusters.json` and can be managed
-with the `wake clusters` command. Adding a new cluster is as easy as
-finding the IP of the consul master and having permission to send
-commands and queries to it.
+Clusters are kept track of in `~/.wake/clusters` and can be managed with
+the `wake clusters` command. Joining a cluster is as easy as finding the
+IP of the consul master and having permission to send commands and
+queries to it.
+
+## Create a cluster
+
+```sh
+$ wake clusters create --name wake-test-1 --iaas azure --location eastus --host-image --default
+```
+
+_NOTE: azure is the only supported IaaS provider at this time._
+
+This will:
+
+1. create a resource group
+2. create a storage account
+3. create a vnet
+4. create a subnet
+5. create a host image that is setup to run services
+6. set this cluster as the default cluster
+
+- - -
+
+_NOTE: Everything after here is not finished._
+
+- create tunnel public ip
+- create awake public ip
+- launch tunnel vm
+- launch consul 1 vm
+- launch consul 2 and 3 vms
+- launch vault vm
+- launch rsyslog vm
+- launch awake vm
+- create a vault and save the 5 keys somewhere
+- ...
+
+_NOTE: this is not finalized yet, but it's a good idea of where we are
+going._
+
+## List known clusters
+
+```sh
+$ wake clusters list
+```
+
+## Set the default cluster
+
+Having a default cluster makes everything else easier, since almost
+every other command will need to know which cluster to perform the
+operation on (like creating a new host, where should it go?).
+
+```sh
+$ wake clusters set-default -n wake-test-1
+```
+
+## Delete a cluster
+
+```sh
+$ wake clusters delete -n wake-test-1
+```
+
+_NOTE: `wake-clusters-delete` will ask you to confirm the name of the
+cluster before proceeding. It's possible to pass `--pre-confirm` with
+the name again to prevent the confirmation prompt._
 
 # Environments
 
 There are no environments with wake. Make a new cluster with a different
 name.
 
-# How do I run a web app then?
+# Hosts
 
-Launch some instances that listen on a port and then either:
-
-* Register them in a public load balancer
-* Use DNS to round robin their IPs
-* Use a static IP to point to a haproxy or nginx instance that renders
-  the IPs of the application instances
-
-# Let's deploy wordpress
-
-First, let's create a new cluster.
+## Create a new bare host from ubuntu
 
 ```sh
-$ wake clusters:create --name best-cluster
-+ some output
+$ wake hosts create --bare --name test-host-1
 ```
 
-We can check how many hosts and instances we have now:
+## Create a new host using the default host image for a cluster
+
+For the default cluster:
 
 ```sh
-$ wake hosts | wc -l
-4
-
-$ wake hosts
-i-87a3bc2        c3.large          ec2-54-74-246-42.eu-west-1.compute.amazonaws.com        eu-west-1a        1 min
-i-97a3bc2        c3.large          ec2-54-74-246-49.eu-west-1.compute.amazonaws.com        eu-west-1b        1 min
-i-47a3bc2        c3.large          ec2-54-74-246-48.eu-west-1.compute.amazonaws.com        eu-west-1c        1 min
-i-07a3bc2        c3.large          ec2-54-74-246-47.eu-west-1.compute.amazonaws.com        eu-west-1a        1 min
+$ wake hosts create --name test-host-1
 ```
 
-We can also see all the instances:
+For a specific cluster:
 
 ```sh
-$ wake instances
-consul-master        9158ad25c39ad745a04ae3544ee462b0fc15fe90        i-87a3bc2        1 min       healthy
-consul-slave         9158ad25c39ad745a04ae3544ee462b0fc15fe90        i-97a3bc2        1 min       healthy
-consul-slave         9158ad25c39ad745a04ae3544ee462b0fc15fe90        i-47a3bc2        1 min       healthy
-rsyslog-master       11420f6d407d7c1f7e6bac1f89fb1ba081cb7c1b        i-07a3bc2        1 min       healthy
+$ wake hosts create --name test-host-1 --cluster other-cluster
 ```
 
-By default, wake will not allow any instances that belong to the same
-application to reside on the same host. Also, some applications are defined
-to use a lot of resources (consul and rsyslog are two). This is why we
-ended up with 4 hosts for 4 applications. As we launch more applications
-they will begin to share resources on hosts.
+Wake will actually provide a random name for you if you like:
 
-Now we can pack up our app for deployment. We need to make a
-`manifest.json` in our app's repo:
+```sh
+$ wake hosts create
+```
+
+To connect to a host after it's created:
+
+```sh
+$ wake hosts create --connect
+```
+
+## Connecting to a host
+
+To connect to a host by it's name:
+
+```sh
+$ wake hosts connect -n test-host-1
+```
+
+To run a command on a host:
+
+```sh
+$ wake hosts run -n test-host-1 -c 'uptime'
+```
+
+# Application conventions
+
+* Every process must listen on port 8000 for `/_health`
+* Every app must declare it's dependencies so the proxy container on the
+  host will fill in the correct ips and dns
+
+# `manifest.json`
+
+Here are some examples:
 
 ```json
 {
-  "platform": "php",
-  "name": "bestsiteever",
-  "owner": [
+  "platform": "ruby",
+  "app": "bestsiteever",
+  "owners": [
     "nathan.herald@microsoft.com"
   ],
-  "repos": [],
-  "types": {
+  "processes": {
     "web": {
+      "start": "cd /opt/app && bin/puma -c config/puma.rb",
       "cpu": 1,
-      "memory": 256,
-      "processes": {
-        "consul_client": "/opt/bin/consul agent -config-dir /opt/config/consul.d/",
-        "statsite": "/opt/bin/statsite -f /opt/config/statsite.d/default.ini",
-        "nginx": "/opt/bin/nginx -c /opt/bin/nginx/php-default.conf"
-      },
-      "cron_jobs": []
-    }
-  }
-}
-```
-
-The default configs are setup for best practices and it's best to use
-them unless absolutuly necessary. An example manifest for a rails
-application would look like:
-
-
-```json
-{
-  "platform": "rails",
-  "name": "aufgaben",
-  "owner": [
-    "nathan.herald@microsoft.com"
-  ],
-  "repos": [],
-  "types": {
-    "web": {
-      "cpu": 1,
-      "memory": 256,
-      "processes": {
-        "consul_client": "/opt/bin/consul agent -config-dir /opt/config/consul.d/",
-        "statsite": "/opt/bin/statsite -f /opt/config/statsite.d/default.ini",
-        "nginx": "/opt/bin/nginx -c /opt/bin/nginx/rails-default.conf",
-        "rails": "bin/puma -C /opt/app/rails/puma_config.rb"
-      },
-      "cron_jobs": []
+      "memory": 0.5
     },
     "worker": {
+      "start": "cd /opt/app && bundle exec rake jobs:work",
       "cpu": 1,
-      "memory": 256,
-      "processes": {
-        "task_toucher": "bin/rails runner app/consumers/task_toucher.rb"
-      },
-      "cron_jobs": []
+      "memory": 0.5
     }
   }
 }
 ```
 
-Now that we have a manifest we can pack up our code:
-
-```sh
-$ wake pack
-+ some output
-cd4e1f4cba4c928557542d8ad34f46c0e567c632
+```json
+{
+  "platform": "sbt",
+  "app": "proxy",
+  "owners": [
+    "nathan.herald@microsoft.com"
+  ],
+  "processes": {
+    "proxy": {
+      "cpu": 4,
+      "memory": 4,
+      "start": "cd /opt/app && sbt run"
+    }
+  }
+}
 ```
 
-The result sha is the docker container that has the runtime and code
-packed up and ready to go.
+# Containers
 
-Now, to launch one of these into your default cluster run:
+We build the docker containers by going through a few steps:
+
+1. Detect the platform type
+2. Build platfrom-compile container
+3. For each process, use a process-application-compile < platform-compile container to:
+   1. Compile a binary of the application process into /tmp/app.gz
+   2. Render a Dockerfile that inherits from the application-release
+   3. Build process-application-release:sha
+   4. Extract /tmp/app.gz into the final container as /opt/app/*
+   5. Copy /tmp/run to /opt/run
+
+Yes, we build the final process-application-release:sha container inside
+the process-application-compile one. This means that our compiled app is
+compiled in linux and packaged up in linux. It also means it's easy to
+copy files into the final container with simple ADD's and stuff like
+that.
+
+_NOTE: **Current status**: only creating the process-application-compile
+container. We will eventually create the -release one, but it is
+currently not a priority._
+
+## OK, what's the command to build a container?
+
+First change into the application's directory where the `manifest.json`
+is, then:
 
 ```sh
-$ wake launch -s cd4e1f4cba4c928557542d8ad34f46c0e567c632 -n 1
-+ some output
+$ wake containers create -r b5aedadd
 ```
 
-This will first look for an empty spot on a host with enough spare cpu
-and memory (one does not exist so it will then create a new host) and
-then launch the container onto one host in the cluster.
-
-If we were to make an update to our code we would simply run:
+If you want to push your containers to your docker hub organization,
+first create the repo over on docker hub, then append `--push`:
 
 ```sh
-$ wake pack
-+ some output
-a440880e801db4e91a7a51be11e516263ec954fd
+$ wake containers create -r $(git rev-parse --verify HEAD | cut -c1-9) --push
 ```
-
-and then
-
-```sh
-$ wake replace -s a440880e801db4e91a7a51be11e516263ec954fd
-```
-
-`wake replace` first runs `wake count`, then will launch that amount of
-new instances, then it will run `wake contract` for the same amount of
-instances. Since `wake contract` removes oldest instances first this
-means the end result is only new instances are running.
-
 

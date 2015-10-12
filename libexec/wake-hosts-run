@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require 'shellwords'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/find_public_ip'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts run [options]"
+
+  opts.required :n, :name,    "Name of the vm"
+  opts.optional :c, :cluster, "Cluster the vm is in"
+  opts.required :k, :command, "Command to run"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:name])
+
+result = Azure::FindPublicIP.call(vm: vm)
+ip = result.ip
+
+Wake.verbose = true
+
+result = Azure::SSH.call(ip: ip, command: parser[:command])
+
+exit result.exitstatus
+

@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+
+require 'securerandom'
+require_relative '../share/wake'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/azure'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake vmi create [options]"
+
+  opts.required :u, :uri,      "URI to VHD file"
+  opts.optional :c, :cluster,  "Cluster to create a vmi in"
+  opts.boolean  :d, :default,  "Save as the default vmi for the cluster"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+Wake.log [:vhd_uri, parser[:uri]]
+cluster.update("azure.vmi_uri", parser[:uri])
+

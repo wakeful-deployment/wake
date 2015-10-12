@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/config'
+require_relative '../share/wake/text_utils'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake config get [options]"
+
+  opts.optional :s, :search, "Only show data nested in certain keyspace"
+end
+
+output = if parser[:search]
+  search = parser[:search].gsub(/\.+$/, '')
+  WakeConfig.traverse(WakeConfig.require(search)).map do |line|
+    [search, line].join(".")
+  end
+else
+  if WakeConfig.config.empty?
+    $stderr.puts "(empty)"
+    exit
+  else
+    WakeConfig.all
+  end
+end
+
+puts output.sort.join("\n").columnize

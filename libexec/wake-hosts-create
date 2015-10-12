@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/provisioning_state_poller'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts create [options]"
+
+  opts.boolean  :b, :bare,             "Make a bare vm not from an existing host image"
+  opts.optional :n, :name,             "Name"
+  opts.optional :i, :"host-image-uri", "URI to an existing host image"
+  opts.optional :c, :cluster,          "The name of the cluster to create the vm into"
+  opts.boolean  :k, :connect,          "ssh to the box after it's up and running"
+end
+
+name = parser[:name] || SecureRandom.hex(8)
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+vm_name        = parser[:name]
+nic_name       = "#{vm_name}-nic"
+public_ip_name = "#{vm_name}-ip"
+
+Wake.log "Creating a vm '#{vm_name}' in cluster '#{cluster.name}'..."
+
+public_ip = Azure::PublicIP.new(resource_group: cluster.azure.resource_group,
+                                name:           public_ip_name)
+
+nic = Azure::NIC.new(resource_group: cluster.azure.resource_group,
+                     name:           nic_name,
+                     subnet:         cluster.azure.subnet,
+                     public_ip:      public_ip)
+
+
+vm_opts = {
+  resource_group:  cluster.azure.resource_group,
+  storage_account: cluster.azure.storage_account,
+  name:            vm_name,
+  nic:             nic,
+}
+
+if parser[:bare]
+  ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")))
+  vm_opts[:ssh_public_key] = ssh_public_key
+else
+  vm_opts[:host_image_uri] = parser[:"host-image-uri"] || cluster.azure.default_host_image_uri
+end
+
+vm = Azure::VM.new(**vm_opts)
+
+public_ip_address = nil
+private_ip_address = nil
+
+dots do
+  Azure.resources.public_ips.put!(public_ip)
+
+  nic_result = Azure.resources.nics.put!(nic)
+  private_ip_address = nic_result.response.parsed_body["properties"]["ipConfigurations"].first["properties"]["privateIPAddress"]
+
+  Azure.resources.vms.put!(vm)
+
+  Azure::ProvisioningStatePoller.call(resource: Azure.resources.vms, model: vm)
+
+  Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
+  ip_result = Azure.resources.public_ips.get!(public_ip)
+  public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
+end
+
+if parser[:connect]
+  Azure::SSH.call(vm: vm)
+else
+  puts JSON.pretty_generate({
+    name: vm_name,
+    public_ip_address: public_ip_address,
+    private_ip_address: private_ip_address
+  })
+end

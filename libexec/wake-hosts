@@ -1,24 +1,14 @@
 #!/usr/bin/env ruby
 
 require_relative '../share/wake/parser'
-require_relative '../share/wake/azure/virtual_machines'
 
-parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake hosts [options]"
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts <command>"
 
-  opts.required :p, :provider, "Select the cloud provider for which you want to show the images"
-  opts.boolean :a, :all, "Show all images available including public ones"
+  opts.subcommand :connect, 'wake-hosts-connect'
+  opts.subcommand :create,  'wake-hosts-create'
+  opts.subcommand :delete,  'wake-hosts-delete'
+  opts.subcommand :run,     'wake-hosts-run'
+  opts.subcommand :setup,   'wake-hosts-setup'
 end
 
-if parser[:provider].to_sym == :azure
-  vm_manager = Wake::Azure::VirtualMachines.vm_manager
-  vms = vm_manager.list_virtual_machines
-
-  puts "There are #{vms.count} vms"
-  puts
-
-  puts "Name\tIP"
-  vms.each do |vm|
-    puts "#{vm.vm_name}:#{vm.cloud_service_name}\t#{vm.ipaddress}"
-  end
-end

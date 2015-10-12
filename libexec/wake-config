@@ -1,24 +1,12 @@
 #!/usr/bin/env ruby
 
 require_relative '../share/wake/parser'
-require_relative '../share/wake/config'
-require_relative '../share/wake/text_utils'
 
-parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake config [options]"
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake config <command>"
 
-  opts.optional :s, :search, "Only show data nested in certain keyspace"
+  opts.subcommand :get, 'wake-config-get'
+  opts.subcommand :set, 'wake-config-set'
+  opts.subcommand :del, 'wake-config-del'
 end
 
-output = if parser[:search]
-  WakeConfig.traverse(WakeConfig.require(parser[:search]))
-else
-  if WakeConfig.config.empty?
-    $stderr.puts "(empty)"
-    exit
-  else
-    WakeConfig.traverse(config)
-  end
-end
-
-puts TextUtils.sort(TextUtils.columnize(output))

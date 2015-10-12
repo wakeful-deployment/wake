@@ -1,6 +1,9 @@
+PanicError = Class.new(Exception)
+
 module Kernel
   def panic!(msg)
-    $stderr.puts msg
-    exit(1)
+    Wake.error msg
+    fail PanicError
+    exit 1
   end
 end

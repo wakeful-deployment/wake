@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+# Make it easy to load file in share
+$:.unshift File.expand_path("../../share/wake", __FILE__)
+
+require 'azure'
+
+# Start up IRB
+require 'irb'
+ARGV.clear
+IRB.start
+

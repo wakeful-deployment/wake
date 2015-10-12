@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake raise <command>"
+
+  opts.subcommand :error, 'wake-raise-error'
+end

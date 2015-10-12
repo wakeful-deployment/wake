@@ -17,7 +17,28 @@ module WakeConfig
   module_function
 
   def format(value, keys)
-    "#{keys.join(".")}\t#{value}"
+    value.gsub!(/ /, ' ') # non-breaking space so column will do the right thing
+
+    out = "#{keys.join(".")}\t#{value}"
+
+    out.gsub!(/\.\[/, '[') # remove . from before [0] so arrays look better
+
+    out
+  end
+
+  def map(array, keys = [])
+    array.each_with_index.map do |v, index|
+      keys.push("[#{index}]")
+      output = if v.is_a?(Hash)
+        traverse(v, keys)
+      elsif v.is_a?(Array)
+        map(v, keys)
+      else
+        format(v, keys)
+      end
+      keys.pop
+      output
+    end
   end
 
   def traverse(hash, keys = [])
@@ -26,7 +47,7 @@ module WakeConfig
       output = if v.is_a?(Hash)
         traverse(v, keys)
       elsif v.is_a?(Array)
-        format("[#{v.join(",")}]", keys)
+        map(v, keys)
       else
         format(v, keys)
       end
@@ -49,14 +70,27 @@ module WakeConfig
 
   def ask_for(key)
     $stderr.print "#{key} is required. What should it's value be? "
-    answer = gets.chomp
+    answer = $stdin.gets.chomp
     update(key, answer)
     require(key)
   end
 
   def update(key, value)
     config.update(key, value)
+    persist
+  end
+
+  def delete(key)
+    config.delete(key)
+    persist
+  end
+
+  def persist
     config.persist
+  end
+
+  def all
+    traverse(config)
   end
 
   def config

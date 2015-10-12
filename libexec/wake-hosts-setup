@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/find_public_ip'
+require_relative '../share/wake/azure/setup'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts setup [options]"
+
+  opts.required :n, :name,    "Name of the vm"
+  opts.optional :c, :cluster, "Cluster the vm is in"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:name])
+
+result = Azure::FindPublicIP.call(vm: vm)
+ip = result.ip
+
+dots do
+  Azure::Setup.call(vm: vm, ip: ip, collaborators: cluster.collaborators)
+end
+

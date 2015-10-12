@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake clusters <command>"
+
+  opts.subcommand :create, 'wake-clusters-create'
+  opts.subcommand :delete, 'wake-clusters-delete'
+  opts.subcommand :list,   'wake-clusters-list'
+  opts.subcommand :"set-default", 'wake-clusters-set-default'
+end

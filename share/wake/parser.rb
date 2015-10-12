@@ -1,4 +1,5 @@
 require 'optparse'
+require_relative '../wake'
 require_relative 'panic'
 
 class OptsParser
@@ -14,7 +15,11 @@ class OptsParser
     @subcommands = []
     @options  = {}
     @parser   = OptionParser.new
+
     yield self
+
+    self.boolean :v, :verbose,        "Run verbosely"
+    self.boolean :V, :"very-verbose", "Run very verbosely"
   end
 
   def subcommand(name, file)
@@ -73,14 +78,28 @@ class OptsParser
       execute_subcommand(subcommand)
     end
 
+    if ARGV.include?("-h") || ARGV.include?("--help")
+      ARGV.delete("-h")
+      ARGV.delete("--help")
+      perform_top_level_parse!(panic: false)
+      puts usage
+      exit 0
+    end
+
     if @received.none? && @subcommands.any?
       panic! "missing required command \n#{usage}"
     end
 
     perform_top_level_parse!
+
+    Wake.verbose = self[:verbose]
+
+    if self[:"very-verbose"]
+      Wake.verbose = Wake.very_verbose = self[:"very-verbose"]
+    end
   end
 
-  def perform_top_level_parse!
+  def perform_top_level_parse!(panic: true)
     @parser.parse!
 
     missing_keys = @required - @received
@@ -93,7 +112,7 @@ class OptsParser
       self[name] = !!self[name] unless self[name].nil?
     end
   rescue OptionParser::MissingArgument, OptionParser::InvalidOption
-    panic! "#{$!}\n#{usage}"
+    panic! "#{$!}\n#{usage}" if panic
   end
 
   def execute_subcommand(command)

@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'tmpdir'
+require_relative '../share/wake'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/root'
+require_relative '../share/wake/json_file'
+require_relative '../share/wake/run'
+require_relative '../share/wake/config'
+require_relative '../share/wake/dockerfile'
+require_relative '../share/wake/docker_image'
+require_relative '../share/wake/git'
+require_relative '../share/wake/chdir'
+require_relative '../share/wake/tmpdir'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake containers create [options]"
+
+  opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :f, :force,    "Force a tag for a revision"
+  opts.boolean  :p, :push,     "Push to the registry"
+end
+
+unless File.exists?("./manifest.json")
+  panic! "Must be run in a directory with a manifest.json"
+end
+
+git_status, _ = run!("git status")
+git_status_last_line = git_status.chomp.lines.last
+
+unless git_status_last_line =~ /^nothing to commit/ || git_status_last_line =~ /^nothing added to commit/
+  panic! "You have uncommited changes to your repo, please stash or clean up then try again"
+end
+
+manifest = JSONFile.new("manifest.json")
+platform = manifest.require("platform")
+app      = manifest.require("app")
+sha      = parser[:revision]
+
+if sha == "master"
+  full_sha, _ = run!("git rev-parse --verify master")
+  sha = full_sha[0..8]
+end
+
+image = nil # so it's in scope at the very end
+
+Git.with_checkout(sha) do
+  hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+
+  platform = manifest.require("platform")
+  dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
+
+  processes = manifest.require("processes")
+
+  # get all the files git knows about
+  git_files = `git ls-files`.lines.map(&:chomp)
+
+  # get all the files in any submodule
+  path_regex = /\s*path = (.+)\s*/
+
+  submodules = if File.exists?(".gitmodules")
+    File.read(".gitmodules").lines.map(&:chomp)
+      .grep(path_regex) { |l| l.match(path_regex)[1] }
+  else
+    []
+  end
+
+  # merge the submodules and the regular files
+  submodules.each do |s|
+    git_files.delete(s)
+    Dir.chdir(s) do
+      git_files.concat `git ls-files`.lines.map(&:chomp)
+        .map { |l| File.join(s, l) }
+    end
+  end
+
+  Dir.mktmpdir do |tmpdir|
+    Wake.log [:tmpdir, tmpdir]
+
+    # copy every file over to the same structure
+    git_files.each do |f|
+      nested_dir = File.join(tmpdir, File.dirname(f))
+      FileUtils.mkdir_p(nested_dir)
+      FileUtils.cp(f, nested_dir, preserve: true)
+    end
+
+    chdir(tmpdir) do
+      processes.each do |process_name, process_info|
+        start = process_info["start"]
+        folder = ".processes/#{process_name}"
+
+        dockerfile = Dockerfile.new(
+          path: dockerfile_compile,
+          sha: sha,
+          start: start,
+          target: folder
+        )
+
+        image = DockerImage.new(
+          app: app,
+          process: process_name,
+          rev: sha,
+          org: hub_organization
+        )
+
+        dockerfile.write!
+
+        File.open(".dockerignore", "w") do |f|
+          f << ".git/*"
+          f << ".processes/*"
+        end
+
+        Wake.log "Building #{image.name}..."
+
+        run! "docker build -t #{image.name} -f #{dockerfile.local_path} ."
+
+        if parser[:push]
+          run! "docker push #{image.name}"
+        end
+
+        if Wake.verbose?
+          print "Hit enter to continue..."
+          gets
+        end
+      end
+    end
+  end
+end
+
+puts JSON.pretty_generate(image.to_hash)

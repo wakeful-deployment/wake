@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/run'
+
+def create
+  a
+end
+
+def a
+  stack
+end
+
+def stack
+  trace
+end
+
+def trace
+  run! "ls /crap"
+end
+
+def error
+  create # will travel down to trace: error => create => a => stack => trace
+end
+
+error

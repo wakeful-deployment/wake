@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake containers <command>"
+
+  opts.subcommand :create, 'wake-containers-create'
+end
+

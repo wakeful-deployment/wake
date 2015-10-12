@@ -1,0 +1,20 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake cluster set-default [options]"
+
+  opts.required :n, :name, "Name"
+end
+
+cluster = WakeCluster.get(parser[:name])
+
+if cluster.nil?
+  panic! "Cluster '#{parser[:name]}' not found locally"
+end
+
+WakeConfig.update("default_cluster", cluster.name)
+

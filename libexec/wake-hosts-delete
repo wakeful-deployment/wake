@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/azure'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts delete [options]"
+
+  opts.required :n, :name,    "Name"
+  opts.optional :c, :cluster, "Cluster the host is in"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:name])
+
+dots do
+  Azure.resources.vms.delete!(vm)
+  # TODO: lookup the related resources so we can delete them too
+  # Azure.resources.nics.delete(nic)
+  # Azure.resources.public_ips.delete(public_ip)
+end

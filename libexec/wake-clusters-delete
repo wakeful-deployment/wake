@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/panic'
+require_relative '../share/wake/azure'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake cluster delete [options]"
+
+  opts.required :n, :name,          "Name"
+  opts.optional :p, :"pre-confirm", "The name of the cluster again to confirm"
+end
+
+cluster = WakeCluster.get(parser[:name])
+
+unless cluster.require("iaas") == "azure"
+  panic! "Only azure is supported for possible IaaS vendors at this time"
+end
+
+unless cluster
+  panic! "cluster '#{parser[:name]}' not found in local config"
+end
+
+check_name = if parser[:"pre-confirm"]
+  parser[:"pre-confirm"]
+else
+  puts "Are you sure you want to delete the '#{cluster.name}' cluster?"
+  puts "This will delete all resources housed inside it like ips, vms, etc..."
+  print "If you are sure, then please re-type the name of the cluster: "
+
+  gets.chomp
+end
+
+if check_name == cluster.name
+  dots do
+    Azure.resources.resource_groups.delete!(cluster.azure.resource_group)
+    cluster.delete
+  end
+end

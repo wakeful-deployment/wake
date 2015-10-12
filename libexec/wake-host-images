@@ -1,28 +1,10 @@
 #!/usr/bin/env ruby
 
-require 'bundler/setup'
-require 'azure'
 require_relative '../share/wake/parser'
-require_relative '../share/wake/azure/virtual_machines'
 
-parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake host launch [options]"
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake host-images <command>"
 
-  opts.required :p, :provider, "Select the cloud provider for which you want to show the images"
-  opts.boolean :a, :all, "Show all images available including public ones"
-end
-
-if parser[:provider].to_sym == :azure
-  vm_image_manager = Wake::Azure::VirtualMachines.vm_image_manager
-
-  images =  vm_image_manager.list_virtual_machine_images.select do |i|
-    parser[:all] || i.category == "User"
-  end
-
-  puts "There are #{images.count} images"
-  puts
-
-  images.each do |i|
-    puts i.name
-  end
+  opts.subcommand :create,        'wake-host-images-create'
+  opts.subcommand :"set-default", 'wake-host-images-set-default'
 end

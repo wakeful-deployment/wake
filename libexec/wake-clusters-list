@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+require_relative '../share/wake/text_utils'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake clusters list [options]"
+end
+
+if WakeCluster.clusters.empty?
+  $stderr.puts "(empty)"
+  exit
+else
+  WakeCluster.clusters.each do |name, info|
+    puts "#{name}:"
+    puts JSON.pretty_generate(info).indent(2)
+    puts
+  end
+end
+

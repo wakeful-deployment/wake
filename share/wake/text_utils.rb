@@ -1,31 +1,17 @@
-require 'open3'
-
-module TextUtils
-  module_function
-
-  def columnize(text)
-    Open3.popen3("column -t") do |stdin, stdout, stderr, wait_thr|
-      stdin.puts text
-      stdin.close
-
-      if wait_thr.value.success?
-        stdout.read.chomp
-      else
-        text
-      end
-    end
+class String
+  def columnize
+    columnBoundary = lines.map{|line| line.split[0].length}.max
+    lines.map do |line|
+      tokens = line.split
+      "%-#{columnBoundary}s %s\n" %[tokens[0], tokens[1]]
+    end.join
   end
 
-  def sort(text)
-    Open3.popen3("sort") do |stdin, stdout, stderr, wait_thr|
-      stdin.puts text
-      stdin.close
-
-      if wait_thr.value.success?
-        stdout.read.chomp
-      else
-        text
-      end
-    end
+  def indent(amount)
+    lines.map do |line|
+      spaces = " " * amount
+      "#{spaces}#{line}"
+    end.join
   end
 end
+
