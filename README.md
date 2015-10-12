@@ -105,10 +105,11 @@ We build the docker containers by going through a few steps:
 5. Build application-release < platform-release
    (including dependencies, repos, and ENV vars)
 6. For each process, use the application-compile container to:
-   1. Compile a binary process of the application into /tmp/app.gz
+   1. Compile a binary of the application process into /tmp/app.gz
    2. Render a Dockerfile that inherits from the application-release
    3. Build process-application-release:sha
    4. Extract /tmp/app.gz into the final container as /opt/app/*
+   5. Copy /tmp/run to /opt/run
 
 Yes, we build the final process-application-release:sha container inside
 the application-compile one. This means that our compiled app is
