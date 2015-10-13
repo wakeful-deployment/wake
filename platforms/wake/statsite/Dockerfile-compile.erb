@@ -14,9 +14,10 @@ RUN apt-get install -y make gcc scons \
  && cd /opt/src/statsite/ && make && cp ./statsite /opt/app/ \
  && mkdir /opt/app/sinks && cp /opt/src/statsite/sinks/* /opt/app/sinks/
 
-RUN echo <%= start_command %> > /opt/start \
+RUN echo <%= start %> > /opt/start \
  && chmod +x /opt/start
 
 CMD /opt/start
 
-# CMD docker build -t $RELEASE_IMAGE_NAME $RELEASE_DOCKERFILE
+# ADD ./Dockerfile-release /opt/Dockerfile-release
+# CMD docker build -t $RELEASE_IMAGE_NAME /opt/Dockerfile-release

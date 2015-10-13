@@ -5,11 +5,11 @@ require_relative '../share/wake/root'
 require_relative '../share/wake/json_file'
 require_relative '../share/wake/run'
 require_relative '../share/wake/config'
+require 'erb'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake seed [options]"
 
-  opts.required :t, :type,     "The type of app"
   opts.required :r, :revision, "The git revision to be packaged"
   opts.boolean  :v, :verbose,  "Run verbosely"
 end
@@ -17,14 +17,45 @@ end
 manifest = JSONFile.new("manifest.json")
 platform = manifest.require("platform")
 app      = manifest.require("app")
+sha      = parser[:revision]
 
 registry_host = WakeConfig.require("docker.registry.host")
 
-Dir.chdir(WAKE_ROOT)
+platform = manifest.require("platform")
+dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
 
-raise "wake-pack doesn't work yet"
+class Dockerfile
+  attr_reader :path, :sha, :start
 
-image_name = "wake-services/#{app}:#{rev}"
+  def initialize(path:, sha:, start:, env: [])
+    @path = path
+    @sha = sha
+    @start = start
+    @env = env
+  end
 
-run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
-run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+  def render
+    ERB.new(File.read(path)).result(binding)
+  end
+end
+
+manifest.require("processes").each do |process_name, process_info|
+  dockerfile = Dockerfile.new(
+    path: dockerfile_compile,
+    sha: sha,
+    start: process_info["start"]
+  )
+
+  File.open("Dockerfile-compile", "w") do |f|
+    f << dockerfile.render
+  end
+
+  name = "#{app}-#{process_name}"
+  image_name = "wake-services/#{name}:#{sha}"
+
+  puts "Building #{image_name}..."
+  run! "docker build -t #{image_name} Dockerfile-compile"
+
+  # run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
+  # run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+end
