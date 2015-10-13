@@ -1,4 +1,4 @@
-# $ RUN docker build -e SHA=abc -e START_COMMAND='crap' -t $COMPILE_IMAGE_NAME $COMPILE_DOCKERFILE
+# $ docker build -e SHA=abc -e START_COMMAND='crap' -t $COMPILE_IMAGE_NAME $COMPILE_DOCKERFILE
 
 FROM buildpack-deps:jessie-curl
 
