@@ -1,5 +1,3 @@
-# $ docker build -e SHA=abc -e START_COMMAND='crap' -t $COMPILE_IMAGE_NAME $COMPILE_DOCKERFILE
-
 FROM buildpack-deps:jessie-curl
 
 MAINTAINER Nathan Herald <nathan.herald@microsoft.com>
@@ -7,7 +5,7 @@ MAINTAINER Nathan Herald <nathan.herald@microsoft.com>
 RUN apt-get update \
  && mkdir /opt/app \
  && mkdir /opt/src \
- && echo $SHA > /opt/app/sha
+ && echo <%= sha %> > /opt/app/sha
 
 ADD . /opt/src
 
@@ -16,10 +14,9 @@ RUN apt-get install -y make gcc scons \
  && cd /opt/src/statsite/ && make && cp ./statsite /opt/app/ \
  && mkdir /opt/app/sinks && cp /opt/src/statsite/sinks/* /opt/app/sinks/
 
-RUN echo $START_COMMAND > /opt/run
+RUN echo <%= start_command %> > /opt/start \
+ && chmod +x /opt/start
 
-RUN rm -rf /opt/src
+CMD /opt/start
 
-CMD /opt/run
-
-# RUN docker build -t $RELEASE_IMAGE_NAME $RELEASE_DOCKERFILE
+# CMD docker build -t $RELEASE_IMAGE_NAME $RELEASE_DOCKERFILE

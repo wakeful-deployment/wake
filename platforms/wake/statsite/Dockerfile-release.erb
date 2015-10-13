@@ -2,7 +2,11 @@ FROM debian:jessie
 
 MAINTAINER Nathan Herald <nathan.herald@microsoft.com>
 
+<% env.each do |k,v| %>
+ENV <%= k %>=<%= v %>
+<% end %>
+
 COPY /opt/app/* /opt/app
-ADD /opt/run /opt/run
+ADD /opt/start /opt/start
 
 CMD /opt/run
