@@ -1,0 +1,8 @@
+FROM debian:jessie
+
+MAINTAINER Nathan Herald <nathan.herald@microsoft.com>
+
+COPY /opt/app/* /opt/app
+ADD /opt/run /opt/run
+
+CMD /opt/run
