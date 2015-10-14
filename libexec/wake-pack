@@ -13,6 +13,8 @@ parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake seed [options]"
 
   opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :f, :force,    "Force a tag for a revision"
+  opts.boolean  :p, :push,     "Push to the registry"
   opts.boolean  :v, :verbose,  "Run verbosely"
 end
 
@@ -114,7 +116,11 @@ Dir.mktmpdir do |tmpdir|
     puts command
     run! command, parser[:verbose]
 
-    # run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
-    # run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+    tag_opts = if parser[:force] then "-f " else "" end
+    run! "docker tag #{tag_opts} #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
+
+    if parser[:push]
+      run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+    end
   end
 end

@@ -3,6 +3,7 @@ require_relative 'panic'
 
 module Kernel
   def run(cmd, verbose = false)
+    puts cmd if verbose
     Open3.popen3(cmd) do |i, o, e, t|
       out, err = [[], []]
       while (stdout = o.gets) || (stderr = e.gets)
