@@ -6,6 +6,8 @@ require_relative '../share/wake/json_file'
 require_relative '../share/wake/run'
 require_relative '../share/wake/config'
 require 'erb'
+require 'fileutils'
+require 'tmpdir'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake seed [options]"
@@ -39,23 +41,80 @@ class Dockerfile
   end
 end
 
-manifest.require("processes").each do |process_name, process_info|
-  dockerfile = Dockerfile.new(
-    path: dockerfile_compile,
-    sha: sha,
-    start: process_info["start"]
-  )
+processes = manifest.require("processes")
 
-  File.open("Dockerfile-compile", "w") do |f|
-    f << dockerfile.render
+# get all the files git knows about
+git_files = `git ls-files`.lines.map(&:chomp)
+
+# get all the files in any submodule
+path_regex = /\A\s*path = (\w+)\s*\z/
+
+submodules = if File.exists?(".gitmodules")
+  File.read(".gitmodules").lines.map(&:chomp)
+    .grep(path_regex) { |l| l.match(path_regex)[1] }
+else
+  []
+end
+
+# merge the submodules and the regular files
+submodules.each do |s|
+  git_files.delete(s)
+  Dir.chdir(s) do
+    git_files.concat `git ls-files`.lines.map(&:chomp)
+      .map { |l| File.join(s, l) }
+  end
+end
+
+Dir.mktmpdir do |tmpdir|
+  # p tmpdir
+
+  # copy every file over to the same structure
+  git_files.each do |f|
+    nested_dir = File.join(tmpdir, File.dirname(f))
+    FileUtils.mkdir_p(nested_dir)
+    FileUtils.cp(f, nested_dir, preserve: true)
   end
 
-  name = "#{app}-#{process_name}"
-  image_name = "wake-services/#{name}:#{sha}"
+  # go to the tmpdir
+  Dir.chdir tmpdir
 
-  puts "Building #{image_name}..."
-  run! "docker build -t #{image_name} Dockerfile-compile"
+  processes.each do |process_name, process_info|
+    start = process_info["start"]
 
-  # run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
-  # run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+    dockerfile = Dockerfile.new(
+      path: dockerfile_compile,
+      sha: sha,
+      start: start
+    )
+
+    folder = ".processes/#{process_name}"
+    FileUtils.mkdir_p(folder)
+    dockerfile_local_path = "#{folder}/Dockerfile-compile"
+
+    File.open(dockerfile_local_path, "w") do |f|
+      f << dockerfile.render
+    end
+
+    File.open(".dockerignore", "w") do |f|
+      f << ".git/*"
+      f << ".processes/*"
+    end
+
+    name = if processes.length == 1 && app == process_name
+             app
+           else
+             "#{app}-#{process_name}"
+           end
+
+    image_name = "wake-services/#{name}:#{sha}"
+
+    puts "Building #{image_name}..."
+
+    command = "docker build -t #{image_name} -f #{dockerfile_local_path} ."
+    puts command
+    run! command, parser[:verbose]
+
+    # run! "docker tag #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
+    # run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+  end
 end
