@@ -5,8 +5,8 @@ require_relative '../share/wake/root'
 require_relative '../share/wake/json_file'
 require_relative '../share/wake/run'
 require_relative '../share/wake/config'
-require 'erb'
-require 'fileutils'
+require_relative '../share/wake/dockerfile'
+require_relative '../share/wake/docker_image'
 require 'tmpdir'
 
 parser = OptsParser.parse do |opts|
@@ -23,25 +23,10 @@ platform = manifest.require("platform")
 app      = manifest.require("app")
 sha      = parser[:revision]
 
-registry_host = WakeConfig.require("docker.registry.host")
+hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
 
 platform = manifest.require("platform")
 dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
-
-class Dockerfile
-  attr_reader :path, :sha, :start
-
-  def initialize(path:, sha:, start:, env: [])
-    @path = path
-    @sha = sha
-    @start = start
-    @env = env
-  end
-
-  def render
-    ERB.new(File.read(path)).result(binding)
-  end
-end
 
 processes = manifest.require("processes")
 
@@ -82,45 +67,35 @@ Dir.mktmpdir do |tmpdir|
 
   processes.each do |process_name, process_info|
     start = process_info["start"]
+    folder = ".processes/#{process_name}"
 
     dockerfile = Dockerfile.new(
       path: dockerfile_compile,
       sha: sha,
-      start: start
+      start: start,
+      target: folder
     )
 
-    folder = ".processes/#{process_name}"
-    FileUtils.mkdir_p(folder)
-    dockerfile_local_path = "#{folder}/Dockerfile-compile"
+    image = DockerImage.new(
+      app: app,
+      process: process_name,
+      rev: sha,
+      org: hub_organization
+    )
 
-    File.open(dockerfile_local_path, "w") do |f|
-      f << dockerfile.render
-    end
+    dockerfile.write!
 
     File.open(".dockerignore", "w") do |f|
       f << ".git/*"
       f << ".processes/*"
     end
 
-    name = if processes.length == 1 && app == process_name
-             app
-           else
-             "#{app}-#{process_name}"
-           end
+    puts "Building #{image.name}..."
 
-    image_name = "wake-services/#{name}:#{sha}"
-
-    puts "Building #{image_name}..."
-
-    command = "docker build -t #{image_name} -f #{dockerfile_local_path} ."
-    puts command
-    run! command, parser[:verbose]
-
-    tag_opts = if parser[:force] then "-f " else "" end
-    run! "docker tag #{tag_opts} #{image_name} #{registry_host}/#{image_name}", parser[:verbose]
+    run! "docker build -t #{image.name} -f #{dockerfile.local_path} .", parser[:verbose]
 
     if parser[:push]
-      run! "docker push #{registry_host}/#{image_name}", parser[:verbose]
+      run! "docker push #{image.name}", parser[:verbose]
     end
   end
 end
