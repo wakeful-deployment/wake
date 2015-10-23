@@ -4,7 +4,7 @@ require_relative '../share/wake/parser'
 require_relative '../share/wake/config'
 
 parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake config [options]"
+  opts.banner = "Usage: wake config set [options]"
 
   opts.required :k, :key,   "The name of the configuration setting"
   opts.required :v, :value, "The value of the configuration setting"

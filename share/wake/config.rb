@@ -59,6 +59,10 @@ module WakeConfig
     config.persist
   end
 
+  def all
+    traverse(config)
+  end
+
   def config
     WAKE_CONFIG
   end
