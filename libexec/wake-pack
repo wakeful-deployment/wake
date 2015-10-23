@@ -23,7 +23,8 @@ platform = manifest.require("platform")
 app      = manifest.require("app")
 sha      = parser[:revision]
 
-hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+#hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+hub_organization = "plum"
 
 platform = manifest.require("platform")
 dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
@@ -99,3 +100,4 @@ Dir.mktmpdir do |tmpdir|
     end
   end
 end
+
