@@ -16,7 +16,7 @@ begin
   include Azure::ARM::Resources::Models
   include Azure::ARM::Storage
   include Azure::ARM::Storage::Models
-rescue
+rescue Gem::LoadError
   puts "Please install the azure gems:"
   puts "$ gem install azure_mgmt_storage azure_mgmt_compute azure_mgmt_resources azure_mgmt_network --no-rdoc --no-ri"
   exit 1

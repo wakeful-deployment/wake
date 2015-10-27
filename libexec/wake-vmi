@@ -5,5 +5,5 @@ require_relative '../share/wake/parser'
 OptsParser.parse do |opts|
   opts.banner = "Usage: wake vmi <command>"
 
-  opts.subcommand :create, 'wake-vim-create'
+  opts.subcommand :create, 'wake-vmi-create'
 end

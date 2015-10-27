@@ -3,6 +3,7 @@
 require 'securerandom'
 require 'shellwords'
 require_relative '../share/wake/parser'
+require_relative '../share/wake/config'
 require_relative '../share/wake/azure'
 
 parser = OptsParser.parse do |opts|
@@ -17,14 +18,19 @@ end
 
 cluster_name           = "Plum-EastUS" # TODO: fetch this from wake config
 cluster_location       = "eastus" # TODO: fetch this from wake config
-tenant_id              = WakeConfig.get_or_ask("azure.account.tenant_id")
-client_id              = WakeConfig.get_or_ask("azure.account.client_id")
-secret                 = WakeConfig.get_or_ask("azure.account.secret")
-subscription_id        = WakeConfig.get_or_ask("azure.account.subscription_id")
-public_key_path        = File.expand_path(WakeConfig.get_or_ask("ssh.public_key.path"))
+tenant_id              = WakeConfig.get_or_ask_for("azure.account.tenant_id")
+client_id              = WakeConfig.get_or_ask_for("azure.account.client_id")
+secret                 = WakeConfig.get_or_ask_for("azure.account.secret")
+subscription_id        = WakeConfig.get_or_ask_for("azure.account.subscription_id")
+public_key_path        = File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path"))
 
-random_name            = SecureRandom.hex
+random_name            = SecureRandom.hex(8)
 computer_name          = "#{cluster_name}-host-#{random_name}"
+
+p [:random, random_name, computer_name]
+
+subnet_name            = "#{cluster_name}-subnet"
+vnet_name              = "#{cluster_name}-vnet"
 os_disk_name           = "os-#{random_name}"
 network_interface_name = "ni-#{random_name}"
 ip_configuration_name  = "ip-#{random_name}"
@@ -46,14 +52,18 @@ unless $?.success?
   raise "Failed to convert ssh public key to pem format"
 end
 
-random_password = SecureRandom.urlsafe_bytes(32).tap do |b|
-  puts "Random machine password: #{b}" if parser[:verbose]
+random_password = SecureRandom.urlsafe_base64(32).tap do |b|
+  puts "Random machine password: #{b}" # if parser[:verbose]
 end
 
 token_provider = MsRestAzure::ApplicationTokenProvider.new(tenant_id, client_id, secret)
 credentials = MsRest::TokenCredentials.new(token_provider)
 
-client = ComputeManagementClient.new(credentials).tap do |c|
+compute_client = ComputeManagementClient.new(credentials).tap do |c|
+  c.subscription_id = subscription_id
+end
+
+network_client = NetworkResourceProviderClient.new(credentials).tap do |c|
   c.subscription_id = subscription_id
 end
 
@@ -75,8 +85,8 @@ props.os_profile = OSProfile.new.tap do |o|
   o.secrets = []
 end
 
-props.hardward_profile = HardwardProfile.new.tap do |h|
-  h.vm_size = 'Standard_G3'
+props.hardware_profile = HardwareProfile.new.tap do |h|
+  h.vm_size = 'Standard_A3'
 end
 
 props.storage_profile = StorageProfile.new.tap do |s|
@@ -87,7 +97,7 @@ props.storage_profile = StorageProfile.new.tap do |s|
     i.version = "14.04.201503090"
   end
 
-  s.os_disk = OsDisk.new.tap do |o|
+  s.os_disk = OSDisk.new.tap do |o|
     o.caching = 'None'
     o.create_option = 'fromImage'
     o.name = os_disk_name
@@ -109,8 +119,52 @@ public_ip_address_params = PublicIpAddress.new.tap do |i|
   end
 end
 
-public_ip_address_result = public_ip_addresses.create_or_update(resource_group_name, public_ip_address_name, public_ip_address_params)
-public_ip_address = public_ip_address_result.value!.body
+def resolve(thing)
+  if thing.respond_to?(:value!)
+    thing.value!.body
+  else
+    thing
+  end
+end
+
+p ["creating public ip", public_ip_address_params]
+
+public_ip_address_result = network_client.public_ip_addresses.create_or_update(resource_group_name, public_ip_address_name, public_ip_address_params)
+public_ip_address = resolve(public_ip_address_result)
+
+subnet_params = Subnet.new.tap do |s|
+  s.name = subnet_name
+
+  s.properties = SubnetPropertiesFormat.new.tap do |spf|
+    spf.address_prefix = '10.0.2.0/24'
+  end
+end
+
+virtual_network_params = VirtualNetwork.new.tap do |v|
+  v.location = cluster_location
+
+  v.properties = VirtualNetworkPropertiesFormat.new.tap do |vp|
+    vp.address_space = AddressSpace.new.tap do |a|
+      a.address_prefixes = ['10.0.0.0/16']
+    end
+
+    vp.dhcp_options = DhcpOptions.new.tap do |d|
+      d.dns_servers = %w(10.1.1.1 10.1.2.4)
+    end
+
+    vp.subnets = [subnet_params]
+  end
+end
+
+p ["creating virtual network", virtual_network_params]
+
+virtual_network_result = network_client.virtual_networks.create_or_update(resource_group_name, vnet_name, virtual_network_params)
+virtual_network = resolve(virtual_network_result)
+
+p ["creating subnet", subnet_params]
+
+subnet_result = network_client.subnets.create_or_update(resource_group_name, vnet_name, subnet_name, subnet_params)
+subnet = resolve(subnet_result)
 
 network_interface = NetworkInterface.new.tap do |ni|
   ni.location = cluster_location
@@ -123,7 +177,7 @@ network_interface = NetworkInterface.new.tap do |ni|
       niic.properties = NetworkInterfaceIpConfigurationPropertiesFormat.new.tap do |niicpf|
         niicpf.private_ipallocation_method = 'Dynamic'
         niicpf.public_ipaddress = public_ip_address
-        niicpf.subnet = fail
+        niicpf.subnet = subnet
       end
     end
 
@@ -141,13 +195,11 @@ params = VirtualMachine.new.tap do |v|
   v.location = cluster_location
 end
 
-promise = client.virtual_machines.create(resource_group_name, computer_name, params)
+p ["creating a new virtual machine"]
 
-result = promise.value!
+promise = compute_client.virtual_machines.create_or_update(resource_group_name, computer_name, params)
+
+result = resolve(promise)
 
 p [:result, result]
-
-vm = result.body
-
-p [:vm, vm]
 
