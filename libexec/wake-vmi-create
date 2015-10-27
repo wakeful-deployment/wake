@@ -1,17 +1,153 @@
 #!/usr/bin/env ruby
 
-begin
-  gem 'azure_mgmt_compute'
-  require 'azure_mgmt_compute'
-rescue
-  puts "Please install the azure_mgmt_compute gem: $ gem install azure_mgmt_compute"
-  exit 1
-end
-
+require 'securerandom'
+require 'shellwords'
 require_relative '../share/wake/parser'
+require_relative '../share/wake/azure'
 
-OptsParser.parse do |opts|
-  opts.banner = "Usage: wake vmi create [options]"
+parser = OptsParser.parse do |opts|
+  opts.banner = <<-EOF
+Usage: wake vmi create [options]
+
+NOTE: Requires an ssh public key.
+EOF
 
   opts.boolean :v, :verbose,  "Run verbosely"
 end
+
+cluster_name           = "Plum-EastUS" # TODO: fetch this from wake config
+cluster_location       = "eastus" # TODO: fetch this from wake config
+tenant_id              = WakeConfig.get_or_ask("azure.account.tenant_id")
+client_id              = WakeConfig.get_or_ask("azure.account.client_id")
+secret                 = WakeConfig.get_or_ask("azure.account.secret")
+subscription_id        = WakeConfig.get_or_ask("azure.account.subscription_id")
+public_key_path        = File.expand_path(WakeConfig.get_or_ask("ssh.public_key.path"))
+
+random_name            = SecureRandom.hex
+computer_name          = "#{cluster_name}-host-#{random_name}"
+os_disk_name           = "os-#{random_name}"
+network_interface_name = "ni-#{random_name}"
+ip_configuration_name  = "ip-#{random_name}"
+domain_name            = "dn-#{random_name}"
+public_ip_address_name = ip_configuration_name
+resource_group_name    = cluster_name # TODO: fetch this from wake config
+storage_account_name   = cluster_name # TODO: fetch this from wake config
+base_storage_uri       = "https://#{storage_account_name}.blob.core.windows.net/#{random_name}"
+vhd_uri                = "#{base_storage_uri}/#{os_disk_name}.vhd"
+
+unless File.exists?(public_key_path)
+  raise "Cannot find file '#{public_key_path}'"
+end
+
+escaped_path = Shellwords.escape(public_key_path)
+public_key = `ssh-keygen -f #{escaped_path} -e -m pem`.chomp
+
+unless $?.success?
+  raise "Failed to convert ssh public key to pem format"
+end
+
+random_password = SecureRandom.urlsafe_bytes(32).tap do |b|
+  puts "Random machine password: #{b}" if parser[:verbose]
+end
+
+token_provider = MsRestAzure::ApplicationTokenProvider.new(tenant_id, client_id, secret)
+credentials = MsRest::TokenCredentials.new(token_provider)
+
+client = ComputeManagementClient.new(credentials).tap do |c|
+  c.subscription_id = subscription_id
+end
+
+props = VirtualMachineProperties.new
+
+linux_config = LinuxConfiguration.new.tap do |l|
+  l.disable_password_authentication = false
+  l.ssh = SshConfiguration.new.tap do |ss|
+    key = SshPublicKey.new.tap { |k| k.key_data = public_key }
+    ss.public_keys = [key]
+  end
+end
+
+props.os_profile = OSProfile.new.tap do |o|
+  o.computer_name = computer_name
+  o.admin_username = 'awake'
+  o.admin_password = random_password
+  o.linux_configuration = linux_config
+  o.secrets = []
+end
+
+props.hardward_profile = HardwardProfile.new.tap do |h|
+  h.vm_size = 'Standard_G3'
+end
+
+props.storage_profile = StorageProfile.new.tap do |s|
+  s.image_reference = ImageReference.new.tap do |i|
+    i.publisher = "Canonical"
+    i.offer = "UbuntuServer"
+    i.sku = "14.04.2-LTS"
+    i.version = "14.04.201503090"
+  end
+
+  s.os_disk = OsDisk.new.tap do |o|
+    o.caching = 'None'
+    o.create_option = 'fromImage'
+    o.name = os_disk_name
+    o.vhd = VirtualHardDisk.new.tap do |v|
+      v.uri = vhd_uri
+    end
+  end
+end
+
+public_ip_address_params = PublicIpAddress.new.tap do |i|
+  i.location = cluster_location
+
+  i.properties = PublicIpAddressPropertiesFormat.new.tap do |pi|
+    pi.public_ipallocation_method = 'Dynamic'
+
+    pi.dns_settings = PublicIpAddressDnsSettings.new.tap do |pia|
+      pia.domain_name_label = domain_name
+    end
+  end
+end
+
+public_ip_address_result = public_ip_addresses.create_or_update(resource_group_name, public_ip_address_name, public_ip_address_params)
+public_ip_address = public_ip_address_result.value!.body
+
+network_interface = NetworkInterface.new.tap do |ni|
+  ni.location = cluster_location
+  ni.name     = network_interface_name
+
+  ni.properties = NetworkInterfacePropertiesFormat.new.tap do |nipf|
+    ip_configuration = NetworkInterfaceIpConfiguration.new.tap do |niic|
+      niic.name = ip_configuration_name
+
+      niic.properties = NetworkInterfaceIpConfigurationPropertiesFormat.new.tap do |niicpf|
+        niicpf.private_ipallocation_method = 'Dynamic'
+        niicpf.public_ipaddress = public_ip_address
+        niicpf.subnet = fail
+      end
+    end
+
+    nipf.ip_configurations = [ip_configuration]
+  end
+end
+
+props.network_profile = NetworkProfile.new.tap do |n|
+  n.network_interfaces = [network_interface]
+end
+
+params = VirtualMachine.new.tap do |v|
+  v.type = 'Microsoft.Compute/virtualMachines'
+  v.properties = props
+  v.location = cluster_location
+end
+
+promise = client.virtual_machines.create(resource_group_name, computer_name, params)
+
+result = promise.value!
+
+p [:result, result]
+
+vm = result.body
+
+p [:vm, vm]
+
