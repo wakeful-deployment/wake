@@ -16,6 +16,8 @@ EOF
   opts.boolean :v, :verbose,  "Run verbosely"
 end
 
+verbose = parser[:verbose]
+
 cluster_name           = "Plum-EastUS" # TODO: fetch this from wake config
 cluster_location       = "eastus" # TODO: fetch this from wake config
 tenant_id              = WakeConfig.get_or_ask_for("azure.account.tenant_id")
@@ -27,7 +29,7 @@ public_key_path        = File.expand_path(WakeConfig.get_or_ask_for("ssh.public_
 random_name            = SecureRandom.hex(8)
 computer_name          = "#{cluster_name}-host-#{random_name}"
 
-p [:random, random_name, computer_name]
+p [:random, random_name, computer_name] if verbose
 
 subnet_name            = "#{cluster_name}-subnet"
 vnet_name              = "#{cluster_name}-vnet"
@@ -37,7 +39,7 @@ ip_configuration_name  = "ip-#{random_name}"
 domain_name            = "dn-#{random_name}"
 public_ip_address_name = ip_configuration_name
 resource_group_name    = cluster_name # TODO: fetch this from wake config
-storage_account_name   = cluster_name # TODO: fetch this from wake config
+storage_account_name   = "dockerdriveseastus" # TODO: fetch this from wake config
 base_storage_uri       = "https://#{storage_account_name}.blob.core.windows.net/#{random_name}"
 vhd_uri                = "#{base_storage_uri}/#{os_disk_name}.vhd"
 
@@ -46,14 +48,12 @@ unless File.exists?(public_key_path)
 end
 
 escaped_path = Shellwords.escape(public_key_path)
-public_key = `ssh-keygen -f #{escaped_path} -e -m pem`.chomp
+public_key = File.read(public_key_path).chomp
 
-unless $?.success?
-  raise "Failed to convert ssh public key to pem format"
-end
+p [:public_key, public_key] if verbose
 
 random_password = SecureRandom.urlsafe_base64(32).tap do |b|
-  puts "Random machine password: #{b}" # if parser[:verbose]
+  puts "Random machine password: #{b}" if verbose
 end
 
 token_provider = MsRestAzure::ApplicationTokenProvider.new(tenant_id, client_id, secret)
@@ -72,7 +72,11 @@ props = VirtualMachineProperties.new
 linux_config = LinuxConfiguration.new.tap do |l|
   l.disable_password_authentication = false
   l.ssh = SshConfiguration.new.tap do |ss|
-    key = SshPublicKey.new.tap { |k| k.key_data = public_key }
+    key = SshPublicKey.new.tap do |k|
+      k.key_data = public_key
+      k.path = "/home/awake/.ssh/authorized_keys"
+    end
+
     ss.public_keys = [key]
   end
 end
@@ -125,9 +129,15 @@ def resolve(thing)
   else
     thing
   end
+rescue MsRestAzure::AzureOperationError => e
+  $stderr.puts [:error, e].inspect
+  $stderr.puts e.body
+  $stderr.puts e.request.inspect
+  $stderr.puts e.response.inspect
+  exit 1
 end
 
-p ["creating public ip", public_ip_address_params]
+p ["creating public ip", public_ip_address_params] if verbose
 
 public_ip_address_result = network_client.public_ip_addresses.create_or_update(resource_group_name, public_ip_address_name, public_ip_address_params)
 public_ip_address = resolve(public_ip_address_result)
@@ -156,17 +166,17 @@ virtual_network_params = VirtualNetwork.new.tap do |v|
   end
 end
 
-p ["creating virtual network", virtual_network_params]
+p ["creating virtual network", virtual_network_params] if verbose
 
 virtual_network_result = network_client.virtual_networks.create_or_update(resource_group_name, vnet_name, virtual_network_params)
 virtual_network = resolve(virtual_network_result)
 
-p ["creating subnet", subnet_params]
+p ["creating subnet", subnet_params] if verbose
 
 subnet_result = network_client.subnets.create_or_update(resource_group_name, vnet_name, subnet_name, subnet_params)
 subnet = resolve(subnet_result)
 
-network_interface = NetworkInterface.new.tap do |ni|
+network_interface_params = NetworkInterface.new.tap do |ni|
   ni.location = cluster_location
   ni.name     = network_interface_name
 
@@ -185,6 +195,9 @@ network_interface = NetworkInterface.new.tap do |ni|
   end
 end
 
+network_interface_result = network_client.network_interfaces.create_or_update(resource_group_name, network_interface_name, network_interface_params)
+network_interface = resolve(network_interface_result)
+
 props.network_profile = NetworkProfile.new.tap do |n|
   n.network_interfaces = [network_interface]
 end
@@ -195,11 +208,11 @@ params = VirtualMachine.new.tap do |v|
   v.location = cluster_location
 end
 
-p ["creating a new virtual machine"]
+p ["creating a new virtual machine"] if verbose
 
 promise = compute_client.virtual_machines.create_or_update(resource_group_name, computer_name, params)
 
 result = resolve(promise)
 
-p [:result, result]
+p [:result, result] if verbose
 
