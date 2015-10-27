@@ -15,8 +15,24 @@ if ($args.Length -eq 0)
   Throw "No arguments"
 }
 
-Write-Host $Command
-Write-Host $Arguments
+$Command = $args[0]
+$Arguments = $args[1..($args.Length)]
+
+if ($args.Length -ge 2)
+{
+  if (!(Test-Path $LIBEXEC_DIR\wake-$args[0]-$args[1]))
+  {
+    $Command = $args[0] + "-" + $args[1]
+    if ($args.Length -eq 2)
+    {
+      $Arguments = @()
+    }
+    else
+    {
+      $Arguments = $args[2..($args.Length)]
+    }
+  }
+}
 
 if (!(Test-Path $LIBEXEC_DIR\wake-$Command))
 {
