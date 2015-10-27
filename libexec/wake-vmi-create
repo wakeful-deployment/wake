@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+begin
+  gem 'azure_mgmt_compute'
+  require 'azure_mgmt_compute'
+rescue
+  puts "Please install the azure_mgmt_compute gem: $ gem install azure_mgmt_compute"
+  exit 1
+end
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake vmi create [options]"
+
+  opts.boolean :v, :verbose,  "Run verbosely"
+end
