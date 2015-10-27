@@ -49,7 +49,7 @@ module WakeConfig
 
   def ask_for(key)
     $stderr.print "#{key} is required. What should it's value be? "
-    answer = gets.chomp
+    answer = $stdin.gets.chomp
     update(key, answer)
     require(key)
   end
