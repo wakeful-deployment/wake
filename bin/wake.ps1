@@ -3,7 +3,7 @@ $LIBEXEC_DIR = Join-Path $PSScriptRoot "..\libexec"
 # Is Ruby installed?
 $RUBY = $(Get-Command Ruby -ErrorAction SilentlyContinue).Source
 
-if (!(Test-Path $RUBY))
+if (!$RUBY -or !(Test-Path $RUBY))
 {
   Throw "Error: Ruby.exe is not installed!"
 }
