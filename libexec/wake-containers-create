@@ -123,8 +123,11 @@ Git.with_checkout(sha) do
         end
 
         if parser[:push]
+          Wake.log "Pushing images..."
+
           run! "docker push #{image.name}"
           run! "docker push #{image.release_name}" if has_release
+          run! "docker push #{image.latest}" if parser[:latest]
         end
 
         images << image
