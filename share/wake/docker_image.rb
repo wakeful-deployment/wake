@@ -23,6 +23,10 @@ class DockerImage
     "#{@org}/wake-#{unique_name}-release:#{@rev}"
   end
 
+  def latest
+    "#{@org}/wake-#{unique_name}:latest"
+  end
+
   def to_hash
     hash = {
       org: @org,

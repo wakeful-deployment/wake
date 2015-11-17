@@ -17,6 +17,7 @@ parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers create [options]"
 
   opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :l, :latest    "Tag this as the latest revision"
   opts.boolean  :f, :force,    "Force a tag for a revision"
   opts.boolean  :p, :push,     "Push to the registry"
 end
@@ -116,6 +117,10 @@ Git.with_checkout(sha) do
         Wake.log "Building #{image.name}..."
 
         run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
+
+        if parser[:latest]
+          run! "docker tag #{image.name} #{image.latest}"
+        end
 
         if parser[:push]
           run! "docker push #{image.name}"
