@@ -11,7 +11,7 @@ class DockerImage
     if @app == @process
       @app
     else
-      "#{@app}-#{process}"
+      "#{@app}-#{@process}"
     end
   end
 

@@ -42,7 +42,7 @@ if sha == "master"
   sha = full_sha[0..8]
 end
 
-image = nil # so it's in scope at the very end
+images = [] # so it's in scope at the very end
 
 Git.with_checkout(sha) do
   hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
@@ -122,6 +122,8 @@ Git.with_checkout(sha) do
           run! "docker push #{image.release_name}" if has_release
         end
 
+        images << image
+
         if Wake.verbose?
           print "Hit enter to continue..."
           gets
@@ -131,4 +133,4 @@ Git.with_checkout(sha) do
   end
 end
 
-puts JSON.pretty_generate(image.to_hash)
+puts JSON.pretty_generate(images.map(&:to_hash))
