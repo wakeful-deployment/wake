@@ -8,7 +8,6 @@ require_relative '../share/wake/root'
 require_relative '../share/wake/json_file'
 require_relative '../share/wake/run'
 require_relative '../share/wake/config'
-require_relative '../share/wake/dockerfile'
 require_relative '../share/wake/docker_image'
 require_relative '../share/wake/git'
 require_relative '../share/wake/chdir'
@@ -18,6 +17,7 @@ parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers create [options]"
 
   opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :l, :latest    "Tag this as the latest revision"
   opts.boolean  :f, :force,    "Force a tag for a revision"
   opts.boolean  :p, :push,     "Push to the registry"
 end
@@ -43,13 +43,18 @@ if sha == "master"
   sha = full_sha[0..8]
 end
 
-image = nil # so it's in scope at the very end
+images = [] # so it's in scope at the very end
 
 Git.with_checkout(sha) do
   hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
 
   platform = manifest.require("platform")
-  dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
+  platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
+  platform_dockerfile_release = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-release")
+
+  unless platform_dockerfile || File.exists?("./Dockerfile")
+    fail "No Dockerfile found for platform '#{platform}'"
+  end
 
   processes = manifest.require("processes")
 
@@ -86,16 +91,16 @@ Git.with_checkout(sha) do
     end
 
     chdir(tmpdir) do
+      unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
+        FileUtils.cp(platform_dockerfile, ".")         if platform_dockerfile
+        FileUtils.cp(platform_dockerfile_release, ".") if platform_dockerfile_release
+      end
+
+      has_release = File.exists?("./Dockerfile-release")
+
       processes.each do |process_name, process_info|
         start = process_info["start"]
         folder = ".processes/#{process_name}"
-
-        dockerfile = Dockerfile.new(
-          path: dockerfile_compile,
-          sha: sha,
-          start: start,
-          target: folder
-        )
 
         image = DockerImage.new(
           app: app,
@@ -104,20 +109,28 @@ Git.with_checkout(sha) do
           org: hub_organization
         )
 
-        dockerfile.write!
-
-        File.open(".dockerignore", "w") do |f|
+        File.open(".dockerignore", "w+") do |f|
           f << ".git/*"
           f << ".processes/*"
         end
 
         Wake.log "Building #{image.name}..."
 
-        run! "docker build -t #{image.name} -f #{dockerfile.local_path} ."
+        run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
+
+        if parser[:latest]
+          run! "docker tag #{image.name} #{image.latest}"
+        end
 
         if parser[:push]
+          Wake.log "Pushing images..."
+
           run! "docker push #{image.name}"
+          run! "docker push #{image.release_name}" if has_release
+          run! "docker push #{image.latest}" if parser[:latest]
         end
+
+        images << image
 
         if Wake.verbose?
           print "Hit enter to continue..."
@@ -128,4 +141,4 @@ Git.with_checkout(sha) do
   end
 end
 
-puts JSON.pretty_generate(image.to_hash)
+puts JSON.pretty_generate(images.map(&:to_hash))

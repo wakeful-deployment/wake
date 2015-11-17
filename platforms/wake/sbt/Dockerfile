@@ -1,5 +1,8 @@
 FROM java:8
 
+ARG sha
+ARG start
+
 RUN mkdir /opt/app && \
   mkdir /opt/src
 
@@ -30,9 +33,9 @@ RUN \
   cd /opt/app && \
   sbt compile
 
-RUN echo '<%= start %>' > /opt/start && \
+RUN echo $start > /opt/start && \
   chmod +x /opt/start
 
-RUN echo <%= sha %> > /opt/app/sha
+RUN echo $sha > /opt/app/sha
 
 CMD /opt/start
