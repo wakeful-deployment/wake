@@ -49,7 +49,12 @@ Git.with_checkout(sha) do
   hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
 
   platform = manifest.require("platform")
-  dockerfile_compile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-compile.erb")
+  platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
+  platform_dockerfile_release = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-release")
+
+  unless platform_dockerfile || File.exists?("./Dockerfile")
+    fail "No Dockerfile found for platform '#{platform}'"
+  end
 
   processes = manifest.require("processes")
 
@@ -86,16 +91,16 @@ Git.with_checkout(sha) do
     end
 
     chdir(tmpdir) do
+      unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
+        FileUtils.cp(platform_dockerfile, ".")         if platform_dockerfile
+        FileUtils.cp(platform_dockerfile_release, ".") if platform_dockerfile_release
+      end
+
+      has_release = File.exists?("./Dockerfile-release")
+
       processes.each do |process_name, process_info|
         start = process_info["start"]
         folder = ".processes/#{process_name}"
-
-        dockerfile = Dockerfile.new(
-          path: dockerfile_compile,
-          sha: sha,
-          start: start,
-          target: folder
-        )
 
         image = DockerImage.new(
           app: app,
@@ -104,19 +109,18 @@ Git.with_checkout(sha) do
           org: hub_organization
         )
 
-        dockerfile.write!
-
-        File.open(".dockerignore", "w") do |f|
+        File.open(".dockerignore", "w+") do |f|
           f << ".git/*"
           f << ".processes/*"
         end
 
         Wake.log "Building #{image.name}..."
 
-        run! "docker build -t #{image.name} -f #{dockerfile.local_path} ."
+        run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
 
         if parser[:push]
           run! "docker push #{image.name}"
+          run! "docker push #{image.release_name}" if has_release
         end
 
         if Wake.verbose?
