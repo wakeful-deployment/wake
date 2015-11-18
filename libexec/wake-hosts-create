@@ -25,7 +25,7 @@ else
   WakeCluster.default
 end
 
-vm_name        = parser[:name]
+vm_name        = name
 nic_name       = "#{vm_name}-nic"
 public_ip_name = "#{vm_name}-ip"
 
