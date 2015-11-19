@@ -1,6 +1,5 @@
 require 'shellwords'
 require_relative 'wake/root'
-require_relative 'wake/run'
 
 def wake(*args)
   formatted_args = args.map { |a| Shellwords.escape(a) }
@@ -14,7 +13,13 @@ def wake(*args)
 
   formatted_string = formatted_args.join(" ")
 
-  run! "#{WAKE_ROOT}/bin/wake #{formatted_string}", log: true
+  Wake.log "$ wake #{formatted_string}"
+
+  system "#{WAKE_ROOT}/bin/wake #{formatted_string}"
+
+  unless $?.success?
+    fail "exited with status #{$?.exitstatus}"
+  end
 end
 
 module Wake
@@ -60,11 +65,11 @@ module Wake
   end
 
   def self.error(msg)
-    $stderr.puts "** Error:"
+    $stderr.print "** Error: "
     if String === msg
       $stderr.puts msg
     else
-      p msg
+      $stderr.puts msg.inspect
     end
   end
 end

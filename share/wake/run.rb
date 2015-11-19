@@ -1,10 +1,10 @@
 require 'open3'
 require_relative '../wake'
-require_relative 'panic'
 
 module Kernel
   def run(cmd, streamer = nil, log: false)
-    Wake.log cmd
+    Wake.log "$ #{cmd}"
+
     Open3.popen3(cmd) do |i, o, e, t|
       out = ""
       err = ""
@@ -54,7 +54,7 @@ module Kernel
         error_string << err
       end
 
-      panic! "`#{cmd}` failed:\n#{error_string}"
+      fail "`#{cmd}` failed:\n#{error_string}"
     end
 
     [out,err]

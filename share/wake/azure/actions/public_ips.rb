@@ -13,7 +13,7 @@ module Azure
             properties: {
               publicIPAllocationMethod: "Dynamic",
               dnsSettings: {
-                domainNameLabel: "#{model.name}-#{model.resource_group.name}"
+                domainNameLabel: "dn-#{model.name}-#{model.resource_group.name}"
               }
             }
           }

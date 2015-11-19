@@ -81,38 +81,36 @@ class OptsParser
     if ARGV.include?("-h") || ARGV.include?("--help")
       ARGV.delete("-h")
       ARGV.delete("--help")
-      perform_top_level_parse!(panic: false)
-      puts usage
-      exit 0
+      $stderr.puts usage
+      exit 1
     end
 
     if @received.none? && @subcommands.any?
-      panic! "missing required command \n#{usage}"
+      Wake.error "missing required command"
+      $stderr.puts usage
+      exit 1
     end
 
     perform_top_level_parse!
 
-    Wake.verbose = self[:verbose]
-
-    if self[:"very-verbose"]
-      Wake.verbose = Wake.very_verbose = self[:"very-verbose"]
-    end
+    Wake.verbose      = self[:verbose]
+    Wake.very_verbose = self[:"very-verbose"]
   end
 
-  def perform_top_level_parse!(panic: true)
+  def perform_top_level_parse!
     @parser.parse!
 
     missing_keys = @required - @received
 
     if missing_keys.any?
-      panic! "missing required flag: #{missing_keys.first}\n#{usage}" if panic
+      panic! "missing required flag: #{missing_keys.first}\n#{usage}"
     end
 
     @boolean.each do |name|
       self[name] = !!self[name] unless self[name].nil?
     end
   rescue OptionParser::MissingArgument, OptionParser::InvalidOption
-    panic! "#{$!}\n#{usage}" if panic
+    panic! "#{$!.message}\n\n#{usage}"
   end
 
   def execute_subcommand(command)
@@ -120,7 +118,6 @@ class OptsParser
     cmd = "#{file} #{ARGV.drop(1).join(" ")}"
 
     exec cmd
-    exit(0)
   end
 
   def fetch_subcommand
@@ -139,7 +136,7 @@ class OptsParser
       subcommands = @subcommands.map{|sc| sc.first}
       "#{@parser}\nAvailable commands:\n* #{subcommands.join("\n* ")}"
     else
-      @parser
+      @parser.to_s
     end
   end
 
