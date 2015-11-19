@@ -32,6 +32,8 @@ vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
 
 Wake.log "Capturing to a vhd file..."
 
+vhd_uri = nil
+
 dots do
   Azure.resources.vms.power_off!(vm)
   Azure.resources.vms.generalize!(vm)
@@ -54,3 +56,5 @@ end
 Wake.log "Deleting the vm..."
 
 wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
+
+puts JSON.pretty_generate({ vhd_uri: vhd_uri })
