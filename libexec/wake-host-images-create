@@ -12,6 +12,7 @@ parser = OptsParser.parse do |opts|
 
   opts.optional :c, :cluster,  "Cluster to create a host image in"
   opts.boolean  :d, :default,  "Save as the default host image for the cluster"
+  opts.boolean  :q, :quiet,    "Don't output the host image details"
 end
 
 cluster = if parser[:cluster]
@@ -22,7 +23,7 @@ end
 
 vm_name = "baking-#{SecureRandom.hex(8)}"
 
-wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--bare"
+wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--bare", "--quiet"
 
 wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name
 
@@ -57,4 +58,6 @@ Wake.log "Deleting the vm..."
 
 wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
 
-puts JSON.pretty_generate({ vhd_uri: vhd_uri })
+unless parser[:quiet]
+  puts JSON.pretty_generate({ vhd_uri: vhd_uri })
+end
