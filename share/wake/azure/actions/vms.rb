@@ -6,7 +6,8 @@ module Azure
       version "2015-06-15"
       action :get
       action :delete
-      action :power_off,  verb: :post, path: "/powerOff"
+      action :power_off,  verb: :post, path: "/poweroff"
+      action :power_on,   verb: :post, path: "/poweron"
       action :generalize, verb: :post, path: "/generalize"
       action :capture,    verb: :post, path: "/capture" do
         def body
