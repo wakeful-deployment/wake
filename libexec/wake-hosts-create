@@ -5,6 +5,7 @@ require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/ssh'
 require_relative '../share/wake/azure/provisioning_state_poller'
 
 parser = OptsParser.parse do |opts|
