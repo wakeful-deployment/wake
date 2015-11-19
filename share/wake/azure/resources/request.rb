@@ -74,6 +74,8 @@ module Azure
         if BODIES.include?(verb) && body
           request["Content-type"] = "application/json"
           request.body = if String === body then body else JSON.generate(body) end
+
+          Wake.debug request.body
         end
 
         @original_response = http.request request
