@@ -77,7 +77,8 @@ dots do
 end
 
 if parser[:connect]
-  Azure::SSH.call(vm: vm)
+  user = WakeConfig.get_or_ask_for("github.username")
+  Azure::SSH.call(ip: public_ip_address, user: user)
 elsif not parser[:quiet]
   puts JSON.pretty_generate({
     name: vm_name,
