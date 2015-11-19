@@ -23,7 +23,8 @@ vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:n
 
 result = Azure::FindPublicIP.call(vm: vm)
 ip = result.ip
+user = WakeConfig.get_or_ask_for("github.username")
 
 Wake.verbose = true
-Azure::SSH.call(ip: ip)
+Azure::SSH.call(ip: ip, user: user)
 
