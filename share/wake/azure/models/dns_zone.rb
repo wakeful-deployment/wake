@@ -3,9 +3,14 @@ require_relative '../model'
 
 module Azure
   class DNSZone
-    include SubResource
+    include Model
 
-    parent :resource_group
+    parent   :resource_group
+    required :name
+
+    def location
+      "global"
+    end
 
     uri { URI("#{resource_group.uri}/providers/Microsoft.Network/dnszones/#{name}") }
   end

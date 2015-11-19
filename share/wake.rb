@@ -31,7 +31,7 @@ module Wake
   end
 
   def self.very_verbose=(value)
-    @very_verbose = value
+    @verbose ||= @very_verbose = value
   end
 
   class << self
