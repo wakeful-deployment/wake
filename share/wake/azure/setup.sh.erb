@@ -11,10 +11,10 @@ touch 10-users
 
 <% fetch_collaborators.each do |name, public_key| %>
 
-sudo echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" >> 10-users
+echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | sudo tee 10-users
 sudo adduser --disabled-password --gecos "" <%= name %>
 sudo mkdir -p /home/<%= name %>/.ssh
-sudo echo "<%= public_key %>" > /home/<%= name %>/.ssh/authorized_keys
+echo "<%= public_key %>" | sudo tee /home/<%= name %>/.ssh/authorized_keys
 sudo chmod 600 /home/<%= name %>/.ssh/authorized_keys
 sudo chown -R <%= name %>:<%= name %> /home/<%= name %>
 
