@@ -105,7 +105,7 @@ class OptsParser
     missing_keys = @required - @received
 
     if missing_keys.any?
-      panic! "missing required flag: #{missing_keys.first}\n#{usage}"
+      panic! "missing required flag: #{missing_keys.first}\n#{usage}" if panic
     end
 
     @boolean.each do |name|
