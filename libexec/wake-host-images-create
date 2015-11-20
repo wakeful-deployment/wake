@@ -55,7 +55,7 @@ dots do
   end
 end
 
-unless parsed[:keep]
+unless parser[:keep]
   Wake.log "Deleting the vm..."
   wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
 end
