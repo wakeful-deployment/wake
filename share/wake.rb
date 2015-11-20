@@ -44,11 +44,11 @@ module Wake
     alias_method :very_verbose?, :very_verbose
   end
 
-  def self.output(msg)
+  def self.output(msg, io: $stdout)
     if String === msg
-      puts msg
+      io.puts msg
     else
-      p msg
+      io.puts msg.inspect
     end
   end
 
@@ -65,11 +65,7 @@ module Wake
   end
 
   def self.error(msg)
-    $stderr.print "** Error: "
-    if String === msg
-      $stderr.puts msg
-    else
-      $stderr.puts msg.inspect
-    end
+    msg = "** Error: #{msg}"
+    output msg, io: $stderr
   end
 end
