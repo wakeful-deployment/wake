@@ -15,7 +15,7 @@ module Azure
       delete: Net::HTTP::Delete
     }.freeze
 
-    BODIES = [:post, :put, :patch]
+    BODIES = [:post, :put, :patch].freeze
 
     attr_reader :token, :verb, :body, :headers, :original_response, :response
 
@@ -57,9 +57,7 @@ module Azure
       o << " '#{uri}'"
     end
 
-    def call
-      Wake.log [uri, verb]
-
+    private def make_request
       Net::HTTP.start(uri.host, uri.port, use_ssl: (uri.scheme == 'https')) do |http|
         klass = VERBS[verb]
         request = klass.new uri
@@ -85,6 +83,30 @@ module Azure
                                code: original_response.code,
                                body: original_response.body,
                                headers: original_response.to_hash)
+
+    rescue => e
+      @original_response = nil
+
+      response_body = JSON.generate({
+        type: "exception",
+        exception: {
+          message: e.message,
+          backtrace: e.backtrace
+        }
+      })
+
+      response_code = if Errno::ETIMEDOUT === e then "504" else "599" end
+
+      @response = Response.new(request: self,
+                               code: response_code,
+                               body: response_body,
+                               headers: {})
+    end
+
+    def call
+      Wake.log [uri, verb]
+
+      make_request
 
       Wake.log [uri, @response.status]
       Wake.debug @response.body
