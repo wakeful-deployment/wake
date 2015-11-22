@@ -3,10 +3,11 @@ require_relative '../run'
 
 module Azure
   class SSH
-    attr_reader :ip, :command, :output, :error, :status
+    attr_reader :ip, :user, :command, :output, :error, :status
 
-    def initialize(ip:, command: nil)
-      @ip = ip
+    def initialize(ip:, user: "awake", command: nil)
+      @ip      = ip
+      @user    = user
       @command = command && Shellwords.escape(command)
     end
 
@@ -15,7 +16,7 @@ module Azure
     end
 
     def ssh_command
-      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no awake@#{ip}"
+      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{user}@#{ip}"
     end
 
     def call

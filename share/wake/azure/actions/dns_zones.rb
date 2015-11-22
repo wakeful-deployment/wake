@@ -2,19 +2,15 @@ require_relative '../resources'
 
 module Azure
   setup_resources do
-    resources :public_ips do
-      version "2015-06-15"
+    resources :dns_zones do
+      version "2015-05-04-preview"
+      action :record_sets, verb: :get, path: "/recordsets"
       action :get
-      action :delete
       action :put do
         def body
           {
             location: model.location,
             properties: {
-              publicIPAllocationMethod: "Dynamic",
-              dnsSettings: {
-                domainNameLabel: "dn-#{model.name}-#{model.resource_group.name}"
-              }
             }
           }
         end
@@ -22,4 +18,3 @@ module Azure
     end
   end
 end
-

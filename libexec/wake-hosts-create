@@ -5,6 +5,7 @@ require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/ssh'
 require_relative '../share/wake/azure/provisioning_state_poller'
 
 parser = OptsParser.parse do |opts|
@@ -15,6 +16,7 @@ parser = OptsParser.parse do |opts|
   opts.optional :i, :"host-image-uri", "URI to an existing host image"
   opts.optional :c, :cluster,          "The name of the cluster to create the vm into"
   opts.boolean  :k, :connect,          "ssh to the box after it's up and running"
+  opts.boolean  :q, :quiet,            "Don't output the machine details"
 end
 
 name = parser[:name] || SecureRandom.hex(8)
@@ -74,12 +76,15 @@ dots do
   public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
 end
 
-if parser[:connect]
-  Azure::SSH.call(vm: vm)
-else
+unless parser[:quiet]
   puts JSON.pretty_generate({
     name: vm_name,
     public_ip_address: public_ip_address,
     private_ip_address: private_ip_address
   })
+end
+
+if parser[:connect]
+  user = WakeConfig.get_or_ask_for("github.username")
+  Azure::SSH.call(ip: public_ip_address, user: user)
 end

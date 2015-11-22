@@ -12,6 +12,8 @@ parser = OptsParser.parse do |opts|
 
   opts.optional :c, :cluster,  "Cluster to create a host image in"
   opts.boolean  :d, :default,  "Save as the default host image for the cluster"
+  opts.boolean  :q, :quiet,    "Don't output the host image details"
+  opts.boolean  :k, :keep,     "Keep the vm that got images and don't delete it"
 end
 
 cluster = if parser[:cluster]
@@ -22,7 +24,7 @@ end
 
 vm_name = "baking-#{SecureRandom.hex(8)}"
 
-wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--bare"
+wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--bare", "--quiet"
 
 wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name
 
@@ -31,6 +33,8 @@ vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
                    storage_account: cluster.azure.storage_account)
 
 Wake.log "Capturing to a vhd file..."
+
+vhd_uri = nil
 
 dots do
   Azure.resources.vms.power_off!(vm)
@@ -51,6 +55,11 @@ dots do
   end
 end
 
-Wake.log "Deleting the vm..."
+unless parser[:keep]
+  Wake.log "Deleting the vm..."
+  wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
+end
 
-wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
+unless parser[:quiet]
+  puts JSON.pretty_generate({ vhd_uri: vhd_uri })
+end

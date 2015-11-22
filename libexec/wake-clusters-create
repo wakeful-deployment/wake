@@ -86,7 +86,7 @@ dots do
 end
 
 if parser[:"host-image"]
-  wake "host-images", :create, "--cluster", cluster.name, "--default"
+  wake "host-images", :create, "--cluster", cluster.name, "--default", "--quiet"
 end
 
 if parser[:default]
