@@ -137,6 +137,14 @@ class WakeCluster
     @azure ||= AzureClusterInfo.new(self)
   end
 
+  def iaas
+    self["iaas"]
+  end
+
+  def dns_zone
+    self["dns_zone"]
+  end
+
   def collaborators
     self["collaborators"] || []
   end

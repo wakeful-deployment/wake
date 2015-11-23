@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'json'
+require 'uri'
 require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
@@ -11,13 +12,15 @@ require_relative '../share/wake/azure/provisioning_state_poller'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts create [options]"
 
-  opts.boolean  :b, :bare,             "Make a bare vm not from an existing host image"
-  opts.optional :n, :name,             "Name"
-  opts.optional :i, :"host-image-uri", "URI to an existing host image"
-  opts.optional :c, :cluster,          "The name of the cluster to create the vm into"
-  opts.boolean  :k, :connect,          "ssh to the box after it's up and running"
-  opts.boolean  :q, :quiet,            "Don't output the machine details"
+  opts.boolean  :b, :bare,    "Make a bare vm not from an existing host image"
+  opts.optional :n, :name,    "Name"
+  opts.optional :f, :from,    "Saved name or URI of an existing host image"
+  opts.optional :c, :cluster, "The name of the cluster to create the vm into"
+  opts.boolean  :k, :connect, "ssh to the box after it's up and running"
+  opts.boolean  :q, :quiet,   "Don't output the machine details"
 end
+
+from = parser[:from] || "agent_host_image_uri"
 
 name = parser[:name] || SecureRandom.hex(8)
 
@@ -25,6 +28,14 @@ cluster = if parser[:cluster]
   WakeCluster.get(parser[:cluster])
 else
   WakeCluster.default
+end
+
+from = if from == "bare"
+  :bare
+elsif from =~ %r{^http}
+  URI(from)
+else
+  URI(WakeCluster.require("azure.#{from}"))
 end
 
 vm_name        = name
@@ -49,11 +60,11 @@ vm_opts = {
   nic:             nic,
 }
 
-if parser[:bare]
+if from == :bare
   ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")))
   vm_opts[:ssh_public_key] = ssh_public_key
 else
-  vm_opts[:host_image_uri] = parser[:"host-image-uri"] || cluster.azure.default_host_image_uri
+  vm_opts[:host_image_uri] = from
 end
 
 vm = Azure::VM.new(**vm_opts)

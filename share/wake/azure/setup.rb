@@ -8,10 +8,11 @@ module Azure
   class Setup
     attr_reader :ip, :collaborators, :vm
 
-    def initialize(collaborators:, ip:, vm:)
+    def initialize(collaborators:, ip:, vm:, type:)
       @collaborators = collaborators
-      @ip = ip
-      @vm = vm
+      @ip            = ip
+      @vm            = vm
+      @type          = type
     end
 
     def fetch_public_key(name)
@@ -53,6 +54,7 @@ module Azure
     end
 
     def call
+      # TODO: use @type to determine what to do
       install_docker
       local_sshd_config = File.expand_path("../sshd_config", __FILE__)
       SCP.call(ip: ip, local_path: local_sshd_config)

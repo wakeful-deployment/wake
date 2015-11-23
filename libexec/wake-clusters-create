@@ -16,7 +16,7 @@ parser = OptsParser.parse do |opts|
   opts.required :i, :iaas,         "IaaS vendor (only azure currently)"
   opts.required :n, :name,         "Name"
   opts.required :l, :location,     "Location [#{Azure.locations.join(",")}]"
-  opts.boolean  :I, :"host-image", "Make a default vmi for this cluster"
+  opts.optional :z, :zone,         "DNS zone to use for storing different private ips"
   opts.boolean  :d, :default,      "Make the default cluster"
 end
 
@@ -32,17 +32,16 @@ unless Azure.locations.include? parser[:location]
   panic! "'#{parser[:location]}' is not a supported location. Possible locations are: #{Azure.locations.join(",")}"
 end
 
+zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.local"
+
 cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap do |c|
   c.update("iaas", "azure")
+  c.update("dns_zone", zone)
   c.update("azure.default_size", "Basic_A3")
   c.update("azure.location", parser[:location])
 end
 
 # TODO: verify that all the current cluster stuff matches what's in the crap
-
-if cluster["azure.location"].nil?
-  cluster.update("azure.location", parser[:location])
-end
 
 if cluster["azure.location"] != parser[:location]
   panic! "This cluster is already setup in a different location"
@@ -52,9 +51,11 @@ dots do
   Azure::Cluster.call(cluster: cluster)
 end
 
-if parser[:"host-image"]
-  wake "host-images", :create, "--cluster", cluster.name, "--default", "--quiet"
-end
+wake "host-images", :create, "--cluster", cluster.name, "--type", "seed", "--save", "--quiet"
+
+wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
+
+wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
 
 if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name

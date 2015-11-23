@@ -50,7 +50,7 @@ class Azure::Cluster
   end
 
   def subnet_name
-    @subnet_name ||= "#{parser[:name]}-subnet"
+    @subnet_name ||= "#{cluster.name}-subnet"
   end
 
   def subnet
@@ -64,11 +64,21 @@ class Azure::Cluster
     cluster.update("azure.subnet", subnet.name)
   end
 
+  def dns_zone
+    @dns_zone ||= Azure::DNSZone.new(resource_group: resource_group, name: cluster.dns_zone)
+  end
+
+  def create_dns_zone
+    Azure.resources.dns_zones.exists?(dns_zone) ||
+      Azure.resources.dns_zones.put!(dns_zone)
+  end
+
   def call
     create_resource_group
     create_storage_account
     create_vnet
     create_subnet
+    create_dns_zone
   end
 
   def self.call(**opts)

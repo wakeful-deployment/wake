@@ -44,7 +44,7 @@ module Azure
               disk.merge!({
                 osType: 'Linux',
                 image: {
-                  uri: model.host_image_uri
+                  uri: model.host_image_uri.to_s
                 }
               })
             end
