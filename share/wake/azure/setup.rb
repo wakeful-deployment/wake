@@ -1,5 +1,6 @@
 require 'erb'
 require 'tmpdir'
+require 'yaml'
 require_relative 'ssh'
 require_relative 'scp'
 require_relative 'provisioning_state_poller'
@@ -53,13 +54,59 @@ module Azure
       Azure::ProvisioningStatePoller.call(resource: Azure.resources.extensions, model: extension)
     end
 
+    def docker_hub_organization
+      @org ||= WakeConfig.get_or_ask_for("docker.hub.organization")
+    end
+
+    def statsite_container_image
+      "#{docker_hub_organization}/statsite:latest"
+    end
+
+    def statsite_container_info
+      {
+        "environment" => [],
+        "container_name" => "statsite",
+        "image" => statsite_container_image
+      }
+    end
+
+    def compose_info
+      {
+        "statsite" => statsite_container_info
+      }
+    end
+
+    def compose_yml
+      YAML.dump compose_info
+    end
+
+    def write_and_copy_compose_yml
+      Dir.mktmpdir do |tmpdir|
+        Wake.log [:tmpdir, tmpdir]
+
+        Dir.chdir(tmpdir) do
+          File.open("docker-compose.yml", "w") do |f|
+            f << compose_yml
+          end
+          SCP.call(ip: ip, local_path: "docker-compose.yml", destination: "/opt/")
+        end
+      end
+    end
+
+    def local_sshd_config_path
+      File.expand_path("../sshd_config", __FILE__)
+    end
+
     def call
       # TODO: use @type to determine what to do
       install_docker
-      local_sshd_config = File.expand_path("../sshd_config", __FILE__)
-      SCP.call(ip: ip, local_path: local_sshd_config)
+
+      SCP.call(ip: ip, local_path: local_sshd_config_path)
+
       render_and_copy_setup_sh
       SSH.call(ip: ip, command: ". setup.sh")
+
+      write_and_copy_compose_yml
     end
 
     def self.call(**opts)
