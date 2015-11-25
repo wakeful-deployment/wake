@@ -1,6 +1,6 @@
 module Azure
   module Setup
-    class Seed
+    class Server
 
     end
   end

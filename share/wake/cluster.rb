@@ -59,9 +59,21 @@ class WakeCluster
       azure.require("default_size")
     end
 
-    def default_host_image_uri
-      if azure["default_host_image_uri"]
-        URI(azure["default_host_image_uri"])
+    def agent_host_image_uri
+      if azure["agent_host_image_uri"]
+        URI(azure["agent_host_image_uri"])
+      end
+    end
+
+    def server_host_image_uri
+      if azure["server_host_image_uri"]
+        URI(azure["server_host_image_uri"])
+      end
+    end
+
+    def seed_host_image_uri
+      if azure["seed_host_image_uri"]
+        URI(azure["seed_host_image_uri"])
       end
     end
 

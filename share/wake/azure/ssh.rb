@@ -5,7 +5,11 @@ module Azure
   class SSH
     attr_reader :ip, :user, :command, :output, :error, :status
 
-    def initialize(ip:, user: "awake", command: nil)
+    def username
+      WakeConfig.get_or_ask_for("github.username")
+    end
+
+    def initialize(ip:, user: username, command: nil)
       @ip      = ip
       @user    = user
       @command = command && Shellwords.escape(command)

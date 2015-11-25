@@ -1,0 +1,10 @@
+address=/.local/127.0.0.1
+server=/consul/127.0.0.1#8600
+no-resolv
+no-poll
+
+<% ns_servers.each do |server| %>
+server=<%= server.ip %>
+<% end %>
+
+server=8.8.8.8

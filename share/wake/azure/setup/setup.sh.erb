@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -x
+set -e
+
+# clear rc.local
+
+sudo truncate -s 0 /etc/rc.local
+
+# update
+
+sudo apt-get update
+
+# packages
+
+sudo apt-get install htop dnsmasq -y
+
+# SSH
+
+sudo mv sshd_config /etc/ssh/sshd_config
+
+touch 10-users
+
+<% fetch_collaborators.each do |name, public_key| %>
+
+echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | sudo tee 10-users
+sudo adduser --disabled-password --gecos "" <%= name %>
+sudo mkdir -p /home/<%= name %>/.ssh
+echo "<%= public_key %>" | sudo tee /home/<%= name %>/.ssh/authorized_keys
+sudo chmod 600 /home/<%= name %>/.ssh/authorized_keys # must be 600
+sudo chown -R <%= name %>:<%= name %> /home/<%= name %>
+
+<% end %>
+
+sudo mv 10-users /etc/sudoers.d/
+sudo chown root:root /etc/sudoers.d/10-users
+sudo chmod 440 /etc/sudoers.d/10-users # must be 440
+
+# docker-compose
+
+sudo mv docker.conf /etc/default/docker
+
+sudo mv docker-compose.yml /opt/docker-compose.yml
+sudo mv compose /opt/compose
+
+sudo chown root:root /etc/default/docker
+sudo chown root:root /opt/docker-compose.yml
+sudo chown root:root /opt/compose
+
+sudo chmod 644 /etc/default/docker
+sudo chmod 644 /opt/docker-compose.yml
+sudo chmod 755 /opt/compose
+
+/opt/compose pull
+
+echo "/opt/compose up" | sudo tee -a /etc/rc.local
+
+# DNS
+
+sudo mv dnsmasq.conf /etc/dnsmasq.conf
+
+# this must be last
+
+sudo rm /etc/sudoers.d/90-cloud-init-users
+rm setup.sh

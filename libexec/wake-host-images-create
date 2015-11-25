@@ -22,6 +22,11 @@ unless TYPES.include? parser[:type]
   panic! "Invalid type argument. Must specify one of these types: #{TYPES.inspect}"
 end
 
+# FIXME: ignore other types for now
+if parser[:type] != "seed"
+  exit 0
+end
+
 cluster = if parser[:cluster]
   WakeCluster.get(parser[:cluster])
 else
@@ -56,7 +61,11 @@ Wake.log "Capturing to vhd file..."
 
 dots do
   Azure.resources.vms.power_off!(vm)
+  sleep 1 # azure is slow sometimes
+
   Azure.resources.vms.generalize!(vm)
+  sleep 1 # azure is slow sometimes
+
   Azure.resources.vms.capture!(vm).tap do |a|
     body = a.response.parsed_body
     resource = body["resources"].first

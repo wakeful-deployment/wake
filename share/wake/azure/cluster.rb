@@ -1,14 +1,16 @@
 require_relative '../azure'
 
 class Azure::Cluster
-  def initialize(cluster: cluster)
+  attr_reader :cluster
+
+  def initialize(cluster:)
     @cluster = cluster
   end
 
   def resource_group
     @resource_group ||= Azure::ResourceGroup.new(subscription: Azure.subscription,
-                                                 name:         @cluster.name,
-                                                 location:     @cluster.azure.location)
+                                                 name:         cluster.name,
+                                                 location:     cluster.azure.location)
   end
 
   def create_resource_group

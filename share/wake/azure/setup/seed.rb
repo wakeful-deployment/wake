@@ -1,9 +1,10 @@
 require 'erb'
 require 'tmpdir'
+require 'resolv'
 require 'yaml'
-require_relative 'ssh'
-require_relative 'scp'
-require_relative 'provisioning_state_poller'
+require_relative '../ssh'
+require_relative '../scp'
+require_relative '../provisioning_state_poller'
 
 module Azure
   module Setup
@@ -59,14 +60,14 @@ module Azure
       end
 
       def statsite_container_image
-        "#{docker_hub_organization}/statsite:latest"
+        "#{docker_hub_organization}/wake-statsite:latest"
       end
 
       def statsite_container_info
         {
-          "environment" => [],
+          "environment"    => [],
           "container_name" => "statsite",
-          "image" => statsite_container_image
+          "image"          => statsite_container_image
         }
       end
 
@@ -80,7 +81,45 @@ module Azure
         YAML.dump compose_info
       end
 
-      def write_and_copy_compose_yml
+      def compose_script_path
+        File.expand_path("../compose", __FILE__)
+      end
+
+      def dns_zone
+        Azure::DNSZone.new(resource_group: cluster.azure.resource_group, name: cluster.require("dns_zone"))
+      end
+
+      def ns_server_ips
+        result   = Azure.resources.dns_zones.record_sets!(dns_zone)
+        body     = result.response.parsed_body
+        ns_set   = body["value"].find { |s| s["id"] =~ %r{NS/@$} }
+        ns_hosts = ns_set["properties"]["NSRecords"].flat_map(&:values)
+
+        ns_hosts.map { |s| Resolv.getaddress(s) }
+      end
+
+      def dnsmasq_conf_template
+        File.read(File.expand_path("../dnsmasq.conf.erb", __FILE__))
+      end
+
+      def render_dnsmasq_conf
+        ERB.new(dnsmasq_conf_template).result(binding)
+      end
+
+      def render_and_copy_dnsmasq_conf
+        Dir.mktmpdir do |tmpdir|
+          Wake.log [:tmpdir, tmpdir]
+
+          Dir.chdir(tmpdir) do
+            File.open("dnsmasq.conf", "w") do |f|
+              f << render_dnsmasq_conf
+            end
+            SCP.call(ip: ip, local_path: "dnsmasq.conf")
+          end
+        end
+      end
+
+      def write_and_copy_compose
         Dir.mktmpdir do |tmpdir|
           Wake.log [:tmpdir, tmpdir]
 
@@ -88,7 +127,8 @@ module Azure
             File.open("docker-compose.yml", "w") do |f|
               f << compose_yml
             end
-            SCP.call(ip: ip, local_path: "docker-compose.yml", destination: "/opt/")
+            SCP.call(ip: ip, local_path: "docker-compose.yml")
+            SCP.call(ip: ip, local_path: compose_script_path)
           end
         end
       end
@@ -97,16 +137,22 @@ module Azure
         File.expand_path("../sshd_config", __FILE__)
       end
 
+      def copy_docker_conf
+        docker_conf_path = File.expand_path("../docker.conf", __FILE__)
+        SCP.call(ip: ip, local_path: docker_conf_path)
+      end
+
       def call
-        # TODO: use @type to determine what to do
         install_docker
 
         SCP.call(ip: ip, local_path: local_sshd_config_path)
 
-        render_and_copy_setup_sh
-        SSH.call(ip: ip, command: ". setup.sh")
+        copy_docker_conf
+        write_and_copy_compose
+        render_and_copy_dnsmasq_conf
 
-        write_and_copy_compose_yml
+        render_and_copy_setup_sh
+        SSH.call(ip: ip, command: ". setup.sh && rm setup.sh")
       end
     end
   end

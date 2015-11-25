@@ -33,6 +33,5 @@ result = Azure::FindPublicIP.call(vm: vm)
 ip = result.ip
 
 dots do
-  Azure::Setup.call(vm: vm, ip: ip, collaborators: cluster.collaborators, type: parser[:type])
+  Azure::Setup.call(cluster: cluster, vm: vm, ip: ip, type: parser[:type])
 end
-

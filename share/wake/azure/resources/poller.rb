@@ -38,7 +38,7 @@ module Azure
         if response.status > 499
           sleep 5 # allow the server time to feel better
         else
-          sleep 0.5
+          sleep 1
         end
       end
     end

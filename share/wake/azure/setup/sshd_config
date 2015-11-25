@@ -23,7 +23,7 @@ PrintLastLog yes
 TCPKeepAlive yes
 AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
-DenyUsers root awake
+DenyUsers root
 ChallengeResponseAuthentication no
 PasswordAuthentication no
 UsePAM no

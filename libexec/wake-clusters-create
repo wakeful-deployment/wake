@@ -32,16 +32,16 @@ unless Azure.locations.include? parser[:location]
   panic! "'#{parser[:location]}' is not a supported location. Possible locations are: #{Azure.locations.join(",")}"
 end
 
-zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.local"
-
 cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap do |c|
+  zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.wakeful"
+
   c.update("iaas", "azure")
   c.update("dns_zone", zone)
   c.update("azure.default_size", "Basic_A3")
   c.update("azure.location", parser[:location])
 end
 
-# TODO: verify that all the current cluster stuff matches what's in the crap
+# TODO: verify that all the current cluster stuff matches what's in the passed args
 
 if cluster["azure.location"] != parser[:location]
   panic! "This cluster is already setup in a different location"
@@ -51,11 +51,17 @@ dots do
   Azure::Cluster.call(cluster: cluster)
 end
 
-wake "host-images", :create, "--cluster", cluster.name, "--type", "seed", "--save", "--quiet"
+unless cluster.azure.seed_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "seed", "--save", "--quiet"
+end
 
-wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
+unless cluster.azure.server_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
+end
 
-wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
+unless cluster.azure.agent_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
+end
 
 if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name

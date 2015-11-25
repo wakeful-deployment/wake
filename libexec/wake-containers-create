@@ -2,6 +2,7 @@
 
 require 'json'
 require 'tmpdir'
+require 'shellwords'
 require_relative '../share/wake'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/root'
@@ -12,12 +13,13 @@ require_relative '../share/wake/docker_image'
 require_relative '../share/wake/git'
 require_relative '../share/wake/chdir'
 require_relative '../share/wake/tmpdir'
+require_relative '../share/wake/dots'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers create [options]"
 
   opts.required :r, :revision, "The git revision to be packaged"
-  opts.boolean  :l, :latest    "Tag this as the latest revision"
+  opts.boolean  :l, :latest,   "Tag this as the latest revision"
   opts.boolean  :f, :force,    "Force a tag for a revision"
   opts.boolean  :p, :push,     "Push to the registry"
 end
@@ -33,108 +35,104 @@ unless git_status_last_line =~ /^nothing to commit/ || git_status_last_line =~ /
   panic! "You have uncommited changes to your repo, please stash or clean up then try again"
 end
 
-manifest = JSONFile.new("manifest.json")
-platform = manifest.require("platform")
-app      = manifest.require("app")
-sha      = parser[:revision]
+manifest   = JSONFile.new("manifest.json")
+platform   = manifest.require("platform")
+app        = manifest.require("app")
+revision   = Shellwords.escape parser[:revision]
+force_opts = if parser[:force] then "-f" end
 
-if sha == "master"
-  full_sha, _ = run!("git rev-parse --verify master")
-  sha = full_sha[0..8]
-end
+full_sha, _ = run!("git rev-parse --verify #{revision}")
+sha = full_sha[0..8]
 
 images = [] # so it's in scope at the very end
 
-Git.with_checkout(sha) do
-  hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+dots do
+  Git.with_checkout(sha) do
+    hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
 
-  platform = manifest.require("platform")
-  platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
-  platform_dockerfile_release = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-release")
+    platform = manifest.require("platform")
+    platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
+    platform_dockerfile_release = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-release")
 
-  unless platform_dockerfile || File.exists?("./Dockerfile")
-    fail "No Dockerfile found for platform '#{platform}'"
-  end
-
-  processes = manifest.require("processes")
-
-  # get all the files git knows about
-  git_files = `git ls-files`.lines.map(&:chomp)
-
-  # get all the files in any submodule
-  path_regex = /\s*path = (.+)\s*/
-
-  submodules = if File.exists?(".gitmodules")
-    File.read(".gitmodules").lines.map(&:chomp)
-      .grep(path_regex) { |l| l.match(path_regex)[1] }
-  else
-    []
-  end
-
-  # merge the submodules and the regular files
-  submodules.each do |s|
-    git_files.delete(s)
-    Dir.chdir(s) do
-      git_files.concat `git ls-files`.lines.map(&:chomp)
-        .map { |l| File.join(s, l) }
-    end
-  end
-
-  Dir.mktmpdir do |tmpdir|
-    Wake.log [:tmpdir, tmpdir]
-
-    # copy every file over to the same structure
-    git_files.each do |f|
-      nested_dir = File.join(tmpdir, File.dirname(f))
-      FileUtils.mkdir_p(nested_dir)
-      FileUtils.cp(f, nested_dir, preserve: true)
+    unless platform_dockerfile || File.exists?("./Dockerfile")
+      fail "No Dockerfile found for platform '#{platform}'"
     end
 
-    chdir(tmpdir) do
-      unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
-        FileUtils.cp(platform_dockerfile, ".")         if platform_dockerfile
-        FileUtils.cp(platform_dockerfile_release, ".") if platform_dockerfile_release
+    processes = manifest.require("processes")
+
+    # get all the files git knows about
+    git_files = `git ls-files`.lines.map(&:chomp)
+
+    # get all the files in any submodule
+    path_regex = /\s*path = (.+)\s*/
+
+    submodules = if File.exists?(".gitmodules")
+      File.read(".gitmodules").lines.map(&:chomp)
+        .grep(path_regex) { |l| l.match(path_regex)[1] }
+    else
+      []
+    end
+
+    # merge the submodules and the regular files
+    submodules.each do |s|
+      git_files.delete(s)
+      Dir.chdir(s) do
+        git_files.concat `git ls-files`.lines.map(&:chomp)
+          .map { |l| File.join(s, l) }
+      end
+    end
+
+    Dir.mktmpdir do |tmpdir|
+      Wake.log [:tmpdir, tmpdir]
+
+      # copy every file over to the same structure
+      git_files.each do |f|
+        nested_dir = File.join(tmpdir, File.dirname(f))
+        FileUtils.mkdir_p(nested_dir)
+        FileUtils.cp(f, nested_dir, preserve: true)
       end
 
-      has_release = File.exists?("./Dockerfile-release")
-
-      processes.each do |process_name, process_info|
-        start = process_info["start"]
-        folder = ".processes/#{process_name}"
-
-        image = DockerImage.new(
-          app: app,
-          process: process_name,
-          rev: sha,
-          org: hub_organization
-        )
-
-        File.open(".dockerignore", "w+") do |f|
-          f << ".git/*"
-          f << ".processes/*"
+      chdir(tmpdir) do
+        unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
+          FileUtils.cp(platform_dockerfile, ".")         if platform_dockerfile
+          FileUtils.cp(platform_dockerfile_release, ".") if platform_dockerfile_release
         end
 
-        Wake.log "Building #{image.name}..."
+        has_release = File.exists?("./Dockerfile-release")
 
-        run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
+        processes.each do |process_name, process_info|
+          start = process_info["start"]
+          folder = ".processes/#{process_name}"
 
-        if parser[:latest]
-          run! "docker tag #{image.name} #{image.latest}"
-        end
+          image = DockerImage.new(
+            app: app,
+            process: process_name,
+            rev: sha,
+            org: hub_organization
+          )
 
-        if parser[:push]
-          Wake.log "Pushing images..."
+          File.open(".dockerignore", "w+") do |f|
+            f << ".git/*"
+            f << ".processes/*"
+          end
 
-          run! "docker push #{image.name}"
-          run! "docker push #{image.release_name}" if has_release
-          run! "docker push #{image.latest}" if parser[:latest]
-        end
+          Wake.log "Building #{image.name}..."
 
-        images << image
+          run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
 
-        if Wake.verbose?
-          print "Hit enter to continue..."
-          gets
+          if parser[:latest]
+            run! "docker tag -f #{image.name} #{image.latest}"
+          end
+
+          if parser[:push]
+            Wake.log "Pushing images..."
+
+            run! "docker push #{image.name}"
+            run! "docker push #{image.release_name}" if has_release
+            run! "docker push #{image.latest}" if parser[:latest]
+          end
+
+          images << image
         end
       end
     end
