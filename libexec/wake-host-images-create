@@ -6,6 +6,8 @@ require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/find_public_ip'
+require_relative '../share/wake/azure/port_poller'
 
 TYPES = %w(seed server agent).freeze
 
@@ -37,8 +39,16 @@ type    = parser[:type]
 vm_name = "baking-#{SecureRandom.hex(8)}"
 from    = if type == "seed" then "bare" else "seed" end
 
+vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
+                   name:            vm_name,
+                   storage_account: cluster.azure.storage_account)
+
 Wake.log "Creating a host from #{from}..."
 wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--from", from, "--quiet"
+
+ip = Azure::FindPublicIP.call(vm: vm).ip
+
+Azure::PortPoller.call(ip: ip, port: 22)
 
 Wake.log "Setting up the #{type} host..."
 wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name, "--type", type
@@ -50,10 +60,6 @@ wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name, "--type", typ
 # wake :hosts, :generalize, "--cluster", cluster.name, "--name", vm_name
 # Wake.log "Capturing to vhd file..."
 # wake :hosts, :capture, "--cluster", cluster.name, "--name", vm_name, "--type", type, "--save"
-
-vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
-                   name:            vm_name,
-                   storage_account: cluster.azure.storage_account)
 
 vhd_uri = nil
 

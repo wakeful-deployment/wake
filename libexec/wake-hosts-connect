@@ -26,6 +26,8 @@ result = Azure::FindPublicIP.call(vm: vm)
 ip = result.ip
 user = parser[:username] || WakeConfig.get_or_ask_for("github.username")
 
+Azure::PortPoller.call(ip: ip, port: 22)
+
 Wake.verbose = true
 Azure::SSH.call(ip: ip, username: user)
 
