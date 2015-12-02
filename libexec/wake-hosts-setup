@@ -5,6 +5,7 @@ require_relative '../share/wake/panic'
 require_relative '../share/wake/dots'
 require_relative '../share/wake/azure'
 require_relative '../share/wake/azure/find_public_ip'
+require_relative '../share/wake/azure/docker_user'
 require_relative '../share/wake/azure/setup'
 
 TYPES = %w(seed server agent).freeze
@@ -12,9 +13,9 @@ TYPES = %w(seed server agent).freeze
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts setup [options]"
 
-  opts.required :n, :name,    "Name of the vm"
-  opts.optional :c, :cluster, "Cluster the vm is in"
-  opts.required :t, :type,    "Type of setup to perform #{TYPES.inspect}"
+  opts.required :n, :name,     "Name of the vm"
+  opts.optional :c, :cluster,  "Cluster the vm is in"
+  opts.required :t, :type,     "Type of setup to perform #{TYPES.inspect}"
 end
 
 unless TYPES.include? parser[:type]
@@ -27,11 +28,19 @@ else
   WakeCluster.default
 end
 
-vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:name])
+vm_opts = {
+  resource_group: cluster.azure.resource_group,
+  name: parser[:name]
+}
+
+vm = Azure::VM.new(**vm_opts)
 
 result = Azure::FindPublicIP.call(vm: vm)
 ip = result.ip
+docker_user = DockerUser.new(username: WakeConfig.get_or_ask_for("docker.hub.readonly_username"),
+                             password: WakeConfig.get_or_ask_for("docker.hub.readonly_password"),
+                             email:    WakeConfig.get_or_ask_for("docker.hub.readonly_email"))
 
 dots do
-  Azure::Setup.call(cluster: cluster, vm: vm, ip: ip, type: parser[:type])
+  Azure::Setup.call(cluster: cluster, vm: vm, ip: ip, docker_user: docker_user, type: parser[:type])
 end

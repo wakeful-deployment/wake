@@ -3,16 +3,16 @@ require_relative '../run'
 
 module Azure
   class SSH
-    attr_reader :ip, :user, :command, :output, :error, :status
+    attr_reader :ip, :username, :command, :output, :error, :status
 
-    def username
+    def github_username
       WakeConfig.get_or_ask_for("github.username")
     end
 
-    def initialize(ip:, user: username, command: nil)
-      @ip      = ip
-      @user    = user
-      @command = command && Shellwords.escape(command)
+    def initialize(ip:, username: github_username, command: nil)
+      @ip       = ip
+      @username = username
+      @command  = command && Shellwords.escape(command)
     end
 
     def command?
@@ -20,7 +20,7 @@ module Azure
     end
 
     def ssh_command
-      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{user}@#{ip}"
+      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{username}@#{ip}"
     end
 
     def call

@@ -9,9 +9,9 @@ require_relative '../share/wake/azure/ssh'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts connect [options]"
 
-  opts.required :n, :name,    "Name"
-  opts.optional :u, :user,    "Username to use when connecting"
-  opts.optional :c, :cluster, "Cluster the host is in"
+  opts.required :n, :name,     "Name"
+  opts.optional :u, :username, "Username to use when connecting"
+  opts.optional :c, :cluster,  "Cluster the host is in"
 end
 
 cluster = if parser[:cluster]
@@ -24,8 +24,8 @@ vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:n
 
 result = Azure::FindPublicIP.call(vm: vm)
 ip = result.ip
-user = parser[:user] || WakeConfig.get_or_ask_for("github.username")
+user = parser[:username] || WakeConfig.get_or_ask_for("github.username")
 
 Wake.verbose = true
-Azure::SSH.call(ip: ip, user: user)
+Azure::SSH.call(ip: ip, username: user)
 

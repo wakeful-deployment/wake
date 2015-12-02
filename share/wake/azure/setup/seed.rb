@@ -9,12 +9,13 @@ require_relative '../provisioning_state_poller'
 module Azure
   module Setup
     class Seed
-      attr_reader :cluster, :ip, :vm
+      attr_reader :cluster, :ip, :vm, :docker_user
 
-      def initialize(cluster:, ip:, vm:)
-        @cluster = cluster
-        @ip      = ip
-        @vm      = vm
+      def initialize(cluster:, ip:, vm:, docker_user:)
+        @cluster     = cluster
+        @ip          = ip
+        @vm          = vm
+        @docker_user = docker_user
       end
 
       def fetch_public_key(name)
@@ -47,12 +48,6 @@ module Azure
             SCP.call(ip: ip, local_path: "setup.sh")
           end
         end
-      end
-
-      def install_docker
-        extension = Azure::Extension.docker(vm: vm)
-        Azure.resources.extensions.put!(extension)
-        Azure::ProvisioningStatePoller.call(resource: Azure.resources.extensions, model: extension)
       end
 
       def docker_hub_organization
@@ -143,8 +138,6 @@ module Azure
       end
 
       def call
-        install_docker
-
         SCP.call(ip: ip, local_path: local_sshd_config_path)
 
         copy_docker_conf
@@ -152,7 +145,7 @@ module Azure
         render_and_copy_dnsmasq_conf
 
         render_and_copy_setup_sh
-        SSH.call(ip: ip, command: ". setup.sh && rm setup.sh")
+        SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
       end
     end
   end

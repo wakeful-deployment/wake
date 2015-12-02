@@ -5,61 +5,82 @@ set -e
 
 # clear rc.local
 
-sudo truncate -s 0 /etc/rc.local
+truncate -s 0 /etc/rc.local
+
+# docker
+
+wget -qO- https://get.docker.com/ | sh
+sleep 10
+
+echo "Waiting on docker to boot up..."
+last_exit="1"
+while [[ $last_exit != "0" ]]; do
+  docker ps > /dev/null
+  last_exit=$?
+done
+
+docker login -u "<%= docker_user.username %>" -p "<%= docker_user.password %>" -e "<%= docker_user.email %>"
+sleep 10
+
+cp ~/.docker/config.json /opt/docker-auth.json
 
 # update
 
-sudo apt-get update
+apt-get update
 
 # packages
 
-sudo apt-get install htop dnsmasq -y
+apt-get -y install htop dnsmasq python-pip
+pip install docker-compose
+
+# docker-compose
+
+mv docker.conf /etc/default/docker
+
+mv docker-compose.yml /opt/docker-compose.yml
+mv compose /opt/compose
+
+chown root:root /etc/default/docker
+chown root:root /opt/docker-compose.yml
+chown root:root /opt/compose
+
+chmod 644 /etc/default/docker
+chmod 644 /opt/docker-compose.yml
+chmod 755 /opt/compose
+
+/opt/compose pull
+
+echo "/opt/compose up -d" | tee -a /etc/rc.local
+
+# DNS
+
+mv dnsmasq.conf /etc/dnsmasq.conf
 
 # SSH
 
-sudo mv sshd_config /etc/ssh/sshd_config
+mv sshd_config /etc/ssh/sshd_config
 
 touch 10-users
 
 <% fetch_collaborators.each do |name, public_key| %>
 
-echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | sudo tee 10-users
-sudo adduser --disabled-password --gecos "" <%= name %>
-sudo mkdir -p /home/<%= name %>/.ssh
-echo "<%= public_key %>" | sudo tee /home/<%= name %>/.ssh/authorized_keys
-sudo chmod 600 /home/<%= name %>/.ssh/authorized_keys # must be 600
-sudo chown -R <%= name %>:<%= name %> /home/<%= name %>
+echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | tee 10-users
+
+if ! grep -q <%= name %> /etc/passwd; then
+  adduser --disabled-password --gecos "" <%= name %>
+fi
+
+mkdir -p /home/<%= name %>/.ssh
+echo "<%= public_key %>" | tee /home/<%= name %>/.ssh/authorized_keys
+chmod 600 /home/<%= name %>/.ssh/authorized_keys # must be 600
+chown -R <%= name %>:<%= name %> /home/<%= name %>
 
 <% end %>
 
-sudo mv 10-users /etc/sudoers.d/
-sudo chown root:root /etc/sudoers.d/10-users
-sudo chmod 440 /etc/sudoers.d/10-users # must be 440
-
-# docker-compose
-
-sudo mv docker.conf /etc/default/docker
-
-sudo mv docker-compose.yml /opt/docker-compose.yml
-sudo mv compose /opt/compose
-
-sudo chown root:root /etc/default/docker
-sudo chown root:root /opt/docker-compose.yml
-sudo chown root:root /opt/compose
-
-sudo chmod 644 /etc/default/docker
-sudo chmod 644 /opt/docker-compose.yml
-sudo chmod 755 /opt/compose
-
-/opt/compose pull
-
-echo "/opt/compose up" | sudo tee -a /etc/rc.local
-
-# DNS
-
-sudo mv dnsmasq.conf /etc/dnsmasq.conf
+mv 10-users /etc/sudoers.d/
+chown root:root /etc/sudoers.d/10-users
+chmod 440 /etc/sudoers.d/10-users # must be 440
 
 # this must be last
 
-sudo rm /etc/sudoers.d/90-cloud-init-users
-rm setup.sh
+# rm /etc/sudoers.d/90-cloud-init-users

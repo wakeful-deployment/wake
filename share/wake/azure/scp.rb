@@ -2,16 +2,17 @@ require_relative '../run'
 
 module Azure
   class SCP
-    attr_reader :ip, :local_path, :destination
+    attr_reader :ip, :local_path, :destination, :username
 
-    def username
+    def github_username
       WakeConfig.get_or_ask_for("github.username")
     end
 
-    def initialize(ip:, local_path:, destination: "/home/#{username}")
+    def initialize(ip:, local_path:, username: github_username, destination: "/home/#{username}")
       @ip = ip
       @local_path = local_path
       @destination = destination
+      @username = username
     end
 
     def scp_command
