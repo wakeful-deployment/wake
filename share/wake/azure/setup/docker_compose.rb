@@ -1,3 +1,6 @@
+require 'tmpdir'
+require 'yaml'
+
 module Azure
   module Dockerable
     def self.included(base)

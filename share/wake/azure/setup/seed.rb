@@ -1,17 +1,17 @@
 require 'erb'
-require 'tmpdir'
 require 'resolv'
-require 'yaml'
-require_relative '../ssh'
 require_relative '../scp'
-require_relative '../provisioning_state_poller'
+require_relative 'docker_compose'
+require_relative 'setupable'
 
 module Azure
   module Setup
     class Seed
       include Dockerable
+      include Setupable
 
       compose :statsite
+      setup_sh_path "setup_seed.sh.erb"
 
       attr_reader :cluster, :ip, :vm, :docker_user
 
@@ -30,27 +30,6 @@ module Azure
       def fetch_collaborators
         cluster.collaborators.map do |c|
           [c, fetch_public_key(c)]
-        end
-      end
-
-      def setup_sh_template
-        File.read(File.expand_path("../setup.sh.erb", __FILE__))
-      end
-
-      def render_setup_sh
-        ERB.new(setup_sh_template).result(binding)
-      end
-
-      def render_and_copy_setup_sh
-        Dir.mktmpdir do |tmpdir|
-          Wake.log [:tmpdir, tmpdir]
-
-          Dir.chdir(tmpdir) do
-            File.open("setup.sh", "w") do |f|
-              f << render_setup_sh
-            end
-            SCP.call(ip: ip, local_path: "setup.sh")
-          end
         end
       end
 
@@ -99,13 +78,11 @@ module Azure
 
       def call
         SCP.call(ip: ip, local_path: local_sshd_config_path)
-
         copy_docker_conf
-        write_and_copy_compose
         render_and_copy_dnsmasq_conf
-
-        render_and_copy_setup_sh
-        SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
+        
+        write_and_copy_compose
+        run_setup
       end
     end
   end

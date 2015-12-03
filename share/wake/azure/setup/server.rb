@@ -1,26 +1,18 @@
-require 'tmpdir'
-require 'yaml'
-require_relative '../scp'
+require_relative 'dockerable'
+require_relative 'setupable'
 
 module Azure
   module Setup
     class Server
       include Dockerable
+      include Setupable
 
       compose :statsite, :server
-
-      def setup_server_sh_path
-        File.expand_path("../setup_server.sh", __FILE__)
-      end
-
-      def copy_setup_server_sh
-        SCP.call(ip: ip, local_path: setup_server_sh_path)
-      end
+      setup_sh_path "setup_consul.sh.erb"
 
       def call
         write_and_copy_compose
-        copy_setup_server_sh
-        SSH.call(ip: ip, command: "sudo chmod +x setup_server.sh && sudo ./setup_server.sh && rm setup_server.sh")
+        run_setup
       end
     end
   end
