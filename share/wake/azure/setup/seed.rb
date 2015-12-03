@@ -9,6 +9,10 @@ require_relative '../provisioning_state_poller'
 module Azure
   module Setup
     class Seed
+      include Dockerable
+
+      compose :statsite
+
       attr_reader :cluster, :ip, :vm, :docker_user
 
       def initialize(cluster:, ip:, vm:, docker_user:)
@@ -50,36 +54,6 @@ module Azure
         end
       end
 
-      def docker_hub_organization
-        WakeConfig.get_or_ask_for("docker.hub.organization")
-      end
-
-      def statsite_container_image
-        "#{docker_hub_organization}/wake-statsite:latest"
-      end
-
-      def statsite_container_info
-        {
-          "environment"    => [],
-          "container_name" => "statsite",
-          "image"          => statsite_container_image
-        }
-      end
-
-      def compose_info
-        {
-          "statsite" => statsite_container_info
-        }
-      end
-
-      def compose_yml
-        YAML.dump compose_info
-      end
-
-      def compose_script_path
-        File.expand_path("../compose", __FILE__)
-      end
-
       def dns_zone
         Azure::DNSZone.new(resource_group: cluster.azure.resource_group, name: cluster.require("dns_zone"))
       end
@@ -110,20 +84,6 @@ module Azure
               f << render_dnsmasq_conf
             end
             SCP.call(ip: ip, local_path: "dnsmasq.conf")
-          end
-        end
-      end
-
-      def write_and_copy_compose
-        Dir.mktmpdir do |tmpdir|
-          Wake.log [:tmpdir, tmpdir]
-
-          Dir.chdir(tmpdir) do
-            File.open("docker-compose.yml", "w") do |f|
-              f << compose_yml
-            end
-            SCP.call(ip: ip, local_path: "docker-compose.yml")
-            SCP.call(ip: ip, local_path: compose_script_path)
           end
         end
       end
