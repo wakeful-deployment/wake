@@ -18,7 +18,7 @@ module Azure
         elsif tries >= max_tries
           fail "port #{port} never became available"
         else
-          tries += 1
+          @tries += 1
           sleep 3
         end
       end

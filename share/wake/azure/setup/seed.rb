@@ -1,7 +1,8 @@
 require 'erb'
 require 'resolv'
 require_relative '../scp'
-require_relative 'docker_compose'
+require_relative '../provisioning_state_poller'
+require_relative 'dockerable'
 require_relative 'setupable'
 
 module Azure
