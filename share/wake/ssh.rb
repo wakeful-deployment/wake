@@ -1,5 +1,5 @@
 require 'shellwords'
-require_relative '../run'
+require_relative 'run'
 
 module Azure
   class SSH
