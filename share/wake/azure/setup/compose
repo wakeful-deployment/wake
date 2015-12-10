@@ -1,4 +1,0 @@
-#!/bin/bash
-mkdir ~/.docker/
-cp /opt/docker-auth.json ~/.docker/config.json
-docker-compose -f /opt/docker-compose.yml $@

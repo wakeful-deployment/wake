@@ -1,0 +1,4 @@
+#!/bin/bash
+mkdir ~/.docker/
+cp /opt/docker-auth.json ~/.docker/config.json
+docker run --name operator -v /opt/config/:/opt/config/ -v /var/run/docker.sock:/var/run/docker.sock plum/wake-operator:latest

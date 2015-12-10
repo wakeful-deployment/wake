@@ -12,7 +12,6 @@ require_relative '../share/wake/azure/provisioning_state_poller'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts create [options]"
 
-  opts.boolean  :b, :bare,     "Make a bare vm not from an existing host image"
   opts.optional :n, :name,     "Name"
   opts.optional :f, :from,     "Saved name or URI of an existing host image"
   opts.optional :c, :cluster,  "The name of the cluster to create the vm into"

@@ -5,6 +5,7 @@ require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
 require_relative '../share/wake/azure/find_public_ip'
 require_relative '../share/wake/azure/ssh'
+require_relative '../share/wake/azure/port_poller'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts connect [options]"

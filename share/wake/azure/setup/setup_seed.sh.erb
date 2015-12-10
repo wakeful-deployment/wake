@@ -30,27 +30,28 @@ apt-get update
 
 # packages
 
-apt-get -y install htop dnsmasq python-pip
-pip install docker-compose
+apt-get -y install htop dnsmasq
+
+# config
+
+mkdir -p /opt/config
 
 # docker-compose
 
 mv docker.conf /etc/default/docker
 
-mv docker-compose.yml /opt/docker-compose.yml
-mv compose /opt/compose
+mv operator.json /opt/config/operator.json
+mv operator_boot /opt/operator_boot
 
 chown root:root /etc/default/docker
-chown root:root /opt/docker-compose.yml
-chown root:root /opt/compose
+chown root:root -R /opt/config
+chown root:root /opt/operator_boot
 
 chmod 644 /etc/default/docker
-chmod 644 /opt/docker-compose.yml
-chmod 755 /opt/compose
+chmod 644 -R /opt/config
+chmod 755 /opt/operator_boot
 
-/opt/compose pull
-
-echo "/opt/compose up -d" | tee -a /etc/rc.local
+echo "/opt/operator_boot" | tee -a /etc/rc.local
 
 # DNS
 

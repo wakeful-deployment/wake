@@ -11,7 +11,7 @@ module Azure
       include Dockerable
       include Setupable
 
-      compose :statsite
+      boot_images :statsite
       setup_sh_path "setup_seed.sh.erb"
 
       attr_reader :cluster, :ip, :vm, :docker_user
@@ -81,8 +81,7 @@ module Azure
         SCP.call(ip: ip, local_path: local_sshd_config_path)
         copy_docker_conf
         render_and_copy_dnsmasq_conf
-        
-        write_and_copy_compose
+        write_and_copy_operator_files
         run_setup
       end
     end

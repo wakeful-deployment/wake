@@ -1,120 +1,134 @@
 require 'tmpdir'
-require 'yaml'
+require 'json'
 
 module Azure
-  module Dockerable
-    def self.included(base)
-      extend ClassMethods
-    end
-
-    module ClassMethods
-      def compose(*images)
-        if images
-          @compose = images.map { |image_name| DockerImage.send(image_name) }
-        else
-          @compose
-        end
+  module Setup
+    module Dockerable
+      def self.included(base)
+        base.extend ClassMethods
       end
-    end
 
-    def compose_info
-      DockerCompose.new(self.class.compose)
-    end
-
-    def compose_yml
-      YAML.dump compose_info.to_hash
-    end
-
-    def compose_script_path
-      File.expand_path("../compose", __FILE__)
-    end
-
-    def write_and_copy_compose
-      Dir.mktmpdir do |tmpdir|
-        Wake.log [:tmpdir, tmpdir]
-
-        Dir.chdir(tmpdir) do
-          File.open("docker-compose.yml", "w") do |f|
-            f << compose_yml
+      module ClassMethods
+        def boot_images(*images)
+          if images && image.length > 0
+            @boot_images = images.map { |image_name| DockerImage.send(image_name) }
+          else
+            @boot_images
           end
-          SCP.call(ip: ip, local_path: "docker-compose.yml")
-          SCP.call(ip: ip, local_path: compose_script_path)
+        end
+      end
+
+      def operator_boot_script_path
+        File.expand_path("../operator_boot", __FILE__)
+      end
+
+      def boot_images
+        self.class.boot_images.map do |image_name|
+          DockerImage.send(image_name)
+        end
+      end
+
+      def operator_json
+        JSON.pretty_generate(boot_images: boot_images)
+      end
+
+      def write_and_copy_operator_files
+        Dir.mktmpdir do |tmpdir|
+          Wake.log [:tmpdir, tmpdir]
+
+          Dir.chdir(tmpdir) do
+            File.open("operator.json", "w") do |f|
+              f << operator_json
+            end
+            SCP.call(ip: ip, local_path: "operator.json")
+            SCP.call(ip: ip, local_path: operator_boot_script_path)
+          end
         end
       end
     end
-  end
 
-  class DockerImage
-    attr_reader :repo, :name, :org, :rev, :ports, :env
+    class DockerImage
+      attr_reader :repo, :name, :org, :rev, :ports, :env
 
-    def docker_hub_organization
-      WakeConfig.get_or_ask_for("docker.hub.organization")
-    end
+      def docker_hub_organization
+        WakeConfig.get_or_ask_for("docker.hub.organization")
+      end
 
-    def self.statsite
-      DockerImage.new(
-        repo: "wake-statsite",
-        name: "statsite",
-        ports: %w(8125:8125/udp)
-      )
-    end
-
-    def self.server
-      consul(:server)
-    end
-
-    def self.agent
-      consul(:agent)
-    end
-
-    def self.consul(type)
-      DockerImage.new(
-        repo: "wake-consul-#{type}",
-        name: "consul",
-        ports: %w(
-          8300:8300
-          8301:8301
-          8301:8301/udp
-          8302:8302/udp
-          8400:8400
-          8500:8500
-          8600:8600
-          8600:8600/udp
+      def self.statsite
+        DockerImage.new(
+          repo: "wake-statsite",
+          name: "statsite",
+          ports: [{
+            incoming: 8125,
+            outgoing: 8125,
+            udp: true
+          }]
         )
-      )
-    end
+      end
 
-    def initialize(repo:, name:, org: docker_hub_organization, rev: :latest, ports: [], env: [])
-      @repo  = repo
-      @name  = name
-      @org   = org
-      @rev   = rev
-      @ports = ports
-      @env   = env
-    end
+      def self.server
+        consul(:server)
+      end
 
-    def image
-      "#{org}/#{repo}:#{rev}"
-    end
+      def self.agent
+        consul(:agent)
+      end
 
-    def to_hash
-      {
-        "environment"    => env,
-        "container_name" => name,
-        "image"          => image,
-        "ports"          => ports
-      }
-    end
-  end
+      def self.consul(type)
+        DockerImage.new(
+          repo: "wake-consul-#{type}",
+          name: "consul",
+          ports: [{
+            incoming: 8300,
+            outgoing: 8300
+          }, {
+            incoming: 8301,
+            outgoing: 8301
+          }, {
+            incoming: 8301,
+            outgoing: 8301,
+            udp: true
+          }, {
+            incoming: 8302,
+            outgoing: 8302,
+            udp: true
+          }, {
+            incoming: 8400,
+            outgoing: 8400
+          }, {
+            incoming: 8500,
+            outgoing: 8500
+          }, {
+            incoming: 8600,
+            outgoing: 8600
+          }, {
+            incoming: 8600,
+            outgoing: 8600,
+            udp: true
+          }]
+        )
+      end
 
-  class DockerCompose
-    def initialize(images)
-      @images = images
-    end
+      def initialize(repo:, name:, org: docker_hub_organization, rev: :latest, ports: [], env: [])
+        @repo  = repo
+        @name  = name
+        @org   = org
+        @rev   = rev
+        @ports = ports
+        @env   = env
+      end
 
-    def to_hash
-      images.each_with_object({}) do |h, image|
-        h[image.name] = image.to_hash
+      def image
+        "#{org}/#{repo}:#{rev}"
+      end
+
+      def to_hash
+        {
+          "env"   => env,
+          "name"  => name,
+          "image" => image,
+          "ports" => ports
+        }
       end
     end
   end

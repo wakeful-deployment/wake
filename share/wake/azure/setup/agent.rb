@@ -7,11 +7,11 @@ module Azure
       include Dockerable
       include Setupable
 
-      compose :statsite, :agent
+      boot_images :statsite, :agent
       setup_sh_path "setup_consul.sh.erb"
 
       def call
-        write_and_copy_compose
+        write_and_copy_operator_files
         run_setup
       end
     end

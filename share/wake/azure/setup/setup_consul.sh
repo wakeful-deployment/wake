@@ -3,4 +3,4 @@
 set -e
 set -x
 
-mv docker-compose.yml /opt/docker-compose.yml
+mv operator.json /opt/config/operator.json
