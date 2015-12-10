@@ -1,4 +1,5 @@
 #!/bin/bash
+HOSTIP=$(ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1 }')
 mkdir ~/.docker/
 cp /opt/docker-auth.json ~/.docker/config.json
-docker run --name operator -v /opt/config/:/opt/config/ -v /var/run/docker.sock:/var/run/docker.sock plum/wake-operator:latest
+docker run -d -e CONSULHOST=$HOSTIP -e VMHOSTNAME=$HOSTNAME --name operator --restart always -v ~/.docker/:/root/.docker/ -v /opt/config/:/opt/config/ -v /var/run/docker.sock:/var/run/docker.sock plum/wake-operator:latest

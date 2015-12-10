@@ -10,8 +10,8 @@ module Azure
 
       module ClassMethods
         def boot_images(*images)
-          if images && image.length > 0
-            @boot_images = images.map { |image_name| DockerImage.send(image_name) }
+          if images && images.length > 0
+            @boot_images = images
           else
             @boot_images
           end
@@ -24,7 +24,7 @@ module Azure
 
       def boot_images
         self.class.boot_images.map do |image_name|
-          DockerImage.send(image_name)
+          DockerImage.send(image_name, cluster).to_hash
         end
       end
 
@@ -54,7 +54,7 @@ module Azure
         WakeConfig.get_or_ask_for("docker.hub.organization")
       end
 
-      def self.statsite
+      def self.statsite(cluster)
         DockerImage.new(
           repo: "wake-statsite",
           name: "statsite",
@@ -62,22 +62,27 @@ module Azure
             incoming: 8125,
             outgoing: 8125,
             udp: true
-          }]
+          }],
+          env: {}
         )
       end
 
-      def self.server
-        consul(:server)
+      def self.server(cluster)
+        consul(:server, cluster)
       end
 
-      def self.agent
-        consul(:agent)
+      def self.agent(cluster)
+        consul(:agent, cluster)
       end
 
-      def self.consul(type)
+      def self.consul(type, cluster)
         DockerImage.new(
           repo: "wake-consul-#{type}",
           name: "consul",
+          env: {
+            "BOOTSTRAP_EXPECT" => "3",
+            "JOINDNS" => "consul.#{cluster.require("dns_zone")}"
+          },
           ports: [{
             incoming: 8300,
             outgoing: 8300
