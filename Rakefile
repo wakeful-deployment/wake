@@ -1,4 +1,5 @@
 code_files = FileList["**/*.rb"]
+code_files.include("**/*.sh")
 code_files.include("**/*.erb")
 code_files.include("**/*.json")
 code_files.include("**/Dockerfile*")
@@ -12,7 +13,7 @@ end
 
 begin
   require 'rubocop/rake_task'
-  
+
   desc 'Run RuboCop'
   RuboCop::RakeTask.new(:rubocop) do |task|
     task.patterns = ['**/*.rb']
