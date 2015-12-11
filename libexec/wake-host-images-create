@@ -24,11 +24,6 @@ unless TYPES.include? parser[:type]
   panic! "Invalid type argument. Must specify one of these types: #{TYPES.inspect}"
 end
 
-# FIXME: ignore other types for now
-if parser[:type] != "seed"
-  exit 0
-end
-
 cluster = if parser[:cluster]
   WakeCluster.get(parser[:cluster])
 else
