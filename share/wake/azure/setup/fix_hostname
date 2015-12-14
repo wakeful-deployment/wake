@@ -1,0 +1,5 @@
+#!/bin/bash
+
+if [[ ! grep -q $HOSTNAME /etc/hosts ]]; then
+  echo 127.0.0.1 $HOSTNAME | tee -a /etc/hosts
+fi

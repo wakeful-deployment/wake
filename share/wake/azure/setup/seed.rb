@@ -77,9 +77,15 @@ module Azure
         SCP.call(ip: ip, local_path: docker_conf_path)
       end
 
+      def copy_fix_hostname
+        fix_hostname_path = File.expand_path("../fix_hostname", __FILE__)
+        SCP.call(ip: ip, local_path: fix_hostname_path)
+      end
+
       def call
         SCP.call(ip: ip, local_path: local_sshd_config_path)
         copy_docker_conf
+        copy_fix_hostname
         render_and_copy_dnsmasq_conf
         write_and_copy_operator_files
         run_setup

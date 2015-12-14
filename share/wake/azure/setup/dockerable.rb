@@ -81,7 +81,9 @@ module Azure
           name: "consul",
           env: {
             "BOOTSTRAP_EXPECT" => "3",
-            "JOINDNS" => "consul.#{cluster.require("dns_zone")}"
+            "JOINDNS" => "consul.#{cluster.require("dns_zone")}",
+            "ADVERTISE" => "$NODEIP",
+            "NODE" => "$NODENAME"
           },
           ports: [{
             incoming: 8300,

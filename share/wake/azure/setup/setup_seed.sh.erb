@@ -5,7 +5,11 @@ set -e
 
 # clear rc.local
 
-truncate -s 0 /etc/rc.local
+# fix the hostname to actually be in etc hosts
+
+mv fix_hostname /opt/fix_hostname
+chmod 755 /opt/fix_hostname
+echo /opt/fix_hostname | tee -a /etc/rc.local
 
 # docker
 
