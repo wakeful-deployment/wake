@@ -19,7 +19,7 @@ parser = OptsParser.parse do |opts|
   opts.boolean  :q, :quiet,    "Don't output the machine details"
 end
 
-from = parser[:from] || "agent_host_image_uri"
+from = parser[:from] || "agent"
 
 name = parser[:name] || SecureRandom.hex(8)
 
