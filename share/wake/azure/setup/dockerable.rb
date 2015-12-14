@@ -97,6 +97,9 @@ module Azure
             udp: true
           }, {
             incoming: 8302,
+            outgoing: 8302
+          }, {
+            incoming: 8302,
             outgoing: 8302,
             udp: true
           }, {
