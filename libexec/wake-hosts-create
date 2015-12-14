@@ -8,6 +8,7 @@ require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
 require_relative '../share/wake/azure/ssh'
 require_relative '../share/wake/azure/provisioning_state_poller'
+require_relative '../share/wake/azure/port_poller'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts create [options]"
@@ -96,6 +97,6 @@ unless parser[:quiet]
 end
 
 if parser[:connect]
-  sleep 15
+  Azure::PortPoller.call(ip: ip, port: 22)
   Azure::SSH.call(ip: public_ip_address)
 end

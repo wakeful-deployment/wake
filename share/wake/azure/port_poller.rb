@@ -11,7 +11,7 @@ module Azure
 
     def call
       loop do
-        `nc -z -w5 #{ip} #{port} > /dev/null`
+        `nc -z -w5 #{ip} #{port} 2&>1 /dev/null`
 
         if $?.success?
           break
