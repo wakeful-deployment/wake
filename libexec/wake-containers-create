@@ -39,7 +39,6 @@ manifest   = JSONFile.new("manifest.json")
 platform   = manifest.require("platform")
 app        = manifest.require("app")
 revision   = Shellwords.escape parser[:revision]
-force_opts = if parser[:force] then "-f" end
 
 full_sha, _ = run!("git rev-parse --verify #{revision}")
 sha = full_sha[0..8]
@@ -52,7 +51,6 @@ dots do
 
     platform = manifest.require("platform")
     platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
-    platform_dockerfile_release = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile-release")
 
     unless platform_dockerfile || File.exists?("./Dockerfile")
       fail "No Dockerfile found for platform '#{platform}'"
@@ -82,6 +80,11 @@ dots do
       end
     end
 
+    # merge in .build-env
+    if File.exists?(".build-env") && !git_files.include?(".build_env")
+      git_files << ".build-env"
+    end
+
     Dir.mktmpdir do |tmpdir|
       Wake.log [:tmpdir, tmpdir]
 
@@ -94,15 +97,11 @@ dots do
 
       chdir(tmpdir) do
         unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
-          FileUtils.cp(platform_dockerfile, ".")         if platform_dockerfile
-          FileUtils.cp(platform_dockerfile_release, ".") if platform_dockerfile_release
+          FileUtils.cp(platform_dockerfile, ".")         if File.exists? platform_dockerfile
         end
-
-        has_release = File.exists?("./Dockerfile-release")
 
         processes.each do |process_name, process_info|
           start = process_info["start"]
-          folder = ".processes/#{process_name}"
 
           image = DockerImage.new(
             app: app,
@@ -128,7 +127,6 @@ dots do
             Wake.log "Pushing images..."
 
             run! "docker push #{image.name}"
-            run! "docker push #{image.release_name}" if has_release
             run! "docker push #{image.latest}" if parser[:latest]
           end
 
