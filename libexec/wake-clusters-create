@@ -67,24 +67,18 @@ if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name
 end
 
-dns_zone = Azure::DNSZone.new(name: cluster.dns_zone, resource_group: WakeCluster.default.azure.resource_group)
-record_set = Azure::DNSRecordSet.new(name: "consul", dns_zone: dns_zone)
+make_consul_host = ->{
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "server", "--register", "consul", "--quiet"
+}
 
-3.times do
-  output = dots do
-    `wake hosts create --cluster #{cluster.name} --from server --quite`.chomp.tap do _
-      unless $?.success?
-        panic! "Could not create the host in the consul cluster"
-      end
-    end
-  end
+make_ssh_proxy = ->{
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "agent", "--name", "sshproxy", "--save", "sshproxy", "--public", "--quiet"
+}
 
-  Wake.log [:vm_create_output, output]
+make_consul_host.call # explicitly wait for one to finish so that at least one is in the dns
 
-  json = JSON.parse(output)
-
-  record_set.add_record ip_address: json["private_ip_address"]
-  Azure.resources.dns_record_sets.put! record_set
-end
+threads = 2.times.map { Thread.new { make_consul_host.call } }
+threads <<              Thread.new { make_ssh_proxy.call }
+threads.map(&:join)
 
 puts JSON.pretty_generate(cluster.to_hash)

@@ -16,8 +16,14 @@ parser = OptsParser.parse do |opts|
   opts.optional :n, :name,     "Name"
   opts.optional :f, :from,     "Saved name or URI of an existing host image"
   opts.optional :c, :cluster,  "The name of the cluster to create the vm into"
-  opts.boolean  :k, :connect,  "ssh to the box after it's up and running"
+  opts.optional :r, :register, "Register this machine in the dns"
+  opts.optional :s, :save,     "Save this machine to the local cluster config"
+  opts.boolean  :p, :public,   "Give this host a public ip address"
   opts.boolean  :q, :quiet,    "Don't output the machine details"
+end
+
+if parser[:save] && !parser[:public]
+  panic! "Cannot provide --save and not also provide --public - can only save public hosts to the local cluster config"
 end
 
 from = parser[:from] || "agent"
@@ -41,12 +47,14 @@ end
 
 vm_name        = name
 nic_name       = "#{vm_name}-nic"
-public_ip_name = "#{vm_name}-ip"
 
 Wake.log "Creating a vm '#{vm_name}' in cluster '#{cluster.name}'..."
 
-public_ip = Azure::PublicIP.new(resource_group: cluster.azure.resource_group,
-                                name:           public_ip_name)
+public_ip = if parser[:public]
+              public_ip_name = "#{vm_name}-ip"
+              Azure::PublicIP.new(resource_group: cluster.azure.resource_group,
+                                  name:           public_ip_name)
+            end
 
 nic = Azure::NIC.new(resource_group: cluster.azure.resource_group,
                      name:           nic_name,
@@ -83,20 +91,40 @@ dots do
 
   Azure::ProvisioningStatePoller.call(resource: Azure.resources.vms, model: vm)
 
-  Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
-  ip_result = Azure.resources.public_ips.get!(public_ip)
-  public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
+  if public_ip
+    Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
+    ip_result = Azure.resources.public_ips.get!(public_ip)
+    public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
+  end
+end
+
+if parser[:register]
+  dns_zone = Azure::DNSZone.new(name: cluster.dns_zone, resource_group: cluster.azure.resource_group)
+  record_set = Azure::DNSRecordSet.new(name: parser[:register], dns_zone: dns_zone)
+
+  current_record_set = Azure.resources.dns_record_sets.get!(record_set)
+  addresses = Array(current_record_set.response.parsed_body["properties"]["ARecords"])
+  addresses.each do |a|
+    record_set.add_record ip_address: a["ipv4Address"]
+  end
+
+  record_set.add_record ip_address: private_ip_address
+  Azure.resources.dns_record_sets.put! record_set
+end
+
+if parser[:save] && public_ip_address
+  cluster.update(parser[:save], public_ip_address)
 end
 
 unless parser[:quiet]
-  puts JSON.pretty_generate({
+  info = {
     name: vm_name,
-    public_ip_address: public_ip_address,
     private_ip_address: private_ip_address
-  })
-end
+  }
 
-if parser[:connect]
-  Azure::PortPoller.call(ip: ip, port: 22)
-  Azure::SSH.call(ip: public_ip_address)
+  if public_ip_address
+    info[:public_ip_address] = public_ip_address
+  end
+
+  puts JSON.pretty_generate(info)
 end
