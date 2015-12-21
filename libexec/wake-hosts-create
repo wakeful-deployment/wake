@@ -18,6 +18,7 @@ parser = OptsParser.parse do |opts|
   opts.optional :c, :cluster,  "The name of the cluster to create the vm into"
   opts.optional :r, :register, "Register this machine in the dns"
   opts.optional :s, :save,     "Save this machine to the local cluster config"
+  opts.optional :z, :size,     "Size of the host machine (Default is Basic_A3)"
   opts.boolean  :p, :public,   "Give this host a public ip address"
   opts.boolean  :q, :quiet,    "Don't output the machine details"
 end
@@ -46,6 +47,7 @@ else
 end
 
 vm_name        = name
+vm_size        = parser[:size]
 nic_name       = "#{vm_name}-nic"
 
 Wake.log "Creating a vm '#{vm_name}' in cluster '#{cluster.name}'..."
@@ -66,6 +68,7 @@ vm_opts = {
   resource_group:  cluster.azure.resource_group,
   storage_account: cluster.azure.storage_account,
   name:            vm_name,
+  size:            vm_size,
   nic:             nic
 }
 
