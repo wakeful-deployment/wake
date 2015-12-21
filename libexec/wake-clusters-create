@@ -67,4 +67,24 @@ if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name
 end
 
+dns_zone = Azure::DNSZone.new(name: cluster.dns_zone, resource_group: WakeCluster.default.azure.resource_group)
+record_set = Azure::DNSRecordSet.new(name: "consul", dns_zone: dns_zone)
+
+3.times do
+  output = dots do
+    `wake hosts create --cluster #{cluster.name} --from server --quite`.chomp.tap do _
+      unless $?.success?
+        panic! "Could not create the host in the consul cluster"
+      end
+    end
+  end
+
+  Wake.log [:vm_create_output, output]
+
+  json = JSON.parse(output)
+
+  record_set.add_record ip_address: json["private_ip_address"]
+  Azure.resources.dns_record_sets.put! record_set
+end
+
 puts JSON.pretty_generate(cluster.to_hash)
