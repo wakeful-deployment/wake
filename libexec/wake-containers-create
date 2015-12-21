@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'json'
+require 'pathname'
 require 'tmpdir'
 require 'shellwords'
 require_relative '../share/wake'
@@ -35,103 +36,94 @@ unless git_status_last_line =~ /^nothing to commit/ || git_status_last_line =~ /
   panic! "You have uncommited changes to your repo, please stash or clean up then try again"
 end
 
-manifest   = JSONFile.new("manifest.json")
-platform   = manifest.require("platform")
-app        = manifest.require("app")
-revision   = Shellwords.escape parser[:revision]
+hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+revision         = Shellwords.escape parser[:revision]
+full_sha, _      = run!("git rev-parse --verify #{revision}")
+sha              = full_sha[0..8]
+images           = [] # so it's in scope at the very end
 
-full_sha, _ = run!("git rev-parse --verify #{revision}")
-sha = full_sha[0..8]
+GitObject = Struct.new(:permissions, :type, :hash, :filepath) do
+  def path
+    Pathname.new(filepath)
+  end
 
-images = [] # so it's in scope at the very end
+  def blob?
+    type == "blob"
+  end
+
+  def perm
+    permissions[-3..-1]
+  end
+end
 
 dots do
-  Git.with_checkout(sha) do
-    hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+  git_tree = `git ls-tree --full-tree -r #{full_sha}`.chomp.lines.map(&:split)
+  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.select(&:blob?)
 
-    platform = manifest.require("platform")
-    platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
+  Dir.mktmpdir do |tmpdir|
+    Wake.log [:tmpdir, tmpdir]
 
-    unless platform_dockerfile || File.exists?("./Dockerfile")
-      fail "No Dockerfile found for platform '#{platform}'"
+    # copy in .build-env if it's not checked in
+    if File.exists?(".build-env") && !git_objects.any? { |o| o.name == ".build-env" }
+      FileUtils.cp(".build-env", tmpdir, preserve: true)
     end
 
-    processes = manifest.require("processes")
-
-    # get all the files git knows about
-    git_files = `git ls-files`.lines.map(&:chomp)
-
-    # get all the files in any submodule
-    path_regex = /\s*path = (.+)\s*/
-
-    submodules = if File.exists?(".gitmodules")
-      File.read(".gitmodules").lines.map(&:chomp)
-        .grep(path_regex) { |l| l.match(path_regex)[1] }
-    else
-      []
+    # copy every file over to the same structure
+    git_objects.each do |o|
+      nested_dir = File.join(tmpdir, File.dirname(o.filepath))
+      FileUtils.mkdir_p(nested_dir)
+      content = `git cat-file -p #{o.hash}`
+      File.open(o.filepath, "w", o.perm) { |f| f << content }
     end
 
-    # merge the submodules and the regular files
-    submodules.each do |s|
-      git_files.delete(s)
-      Dir.chdir(s) do
-        git_files.concat `git ls-files`.lines.map(&:chomp)
-          .map { |l| File.join(s, l) }
-      end
-    end
+    chdir(tmpdir) do
+      manifest  = JSONFile.new("manifest.json")
+      platform  = manifest.require("platform")
+      app       = manifest.require("app")
+      platform  = manifest.require("platform")
+      processes = manifest.require("processes")
 
-    # merge in .build-env
-    if File.exists?(".build-env") && !git_files.include?(".build_env")
-      git_files << ".build-env"
-    end
+      unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
+        platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
 
-    Dir.mktmpdir do |tmpdir|
-      Wake.log [:tmpdir, tmpdir]
-
-      # copy every file over to the same structure
-      git_files.each do |f|
-        nested_dir = File.join(tmpdir, File.dirname(f))
-        FileUtils.mkdir_p(nested_dir)
-        FileUtils.cp(f, nested_dir, preserve: true)
-      end
-
-      chdir(tmpdir) do
-        unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
-          FileUtils.cp(platform_dockerfile, ".")         if File.exists? platform_dockerfile
+        unless platform_dockerfile || File.exists?("./Dockerfile")
+          fail "No Dockerfile found for platform '#{platform}'"
         end
 
-        processes.each do |process_name, process_info|
-          start = process_info["start"]
+        FileUtils.cp(platform_dockerfile, ".") if File.exists? platform_dockerfile
+      end
 
-          image = DockerImage.new(
-            app: app,
-            process: process_name,
-            rev: sha,
-            org: hub_organization
-          )
+      processes.each do |process_name, process_info|
+        start = process_info["start"]
 
-          File.open(".dockerignore", "w+") do |f|
-            f << ".git/*"
-            f << ".processes/*"
-          end
+        image = DockerImage.new(
+          app: app,
+          process: process_name,
+          rev: sha,
+          org: hub_organization
+        )
 
-          Wake.log "Building #{image.name}..."
-
-          run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
-
-          if parser[:latest]
-            run! "docker tag -f #{image.name} #{image.latest}"
-          end
-
-          if parser[:push]
-            Wake.log "Pushing images..."
-
-            run! "docker push #{image.name}"
-            run! "docker push #{image.latest}" if parser[:latest]
-          end
-
-          images << image
+        File.open(".dockerignore", "w+") do |f|
+          f << ".git/*"
+          f << ".processes/*"
         end
+
+        Wake.log "Building #{image.name}..."
+
+        run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
+
+        if parser[:latest]
+          run! "docker tag -f #{image.name} #{image.latest}"
+        end
+
+        if parser[:push]
+          Wake.log "Pushing images..."
+
+          run! "docker push #{image.name}"
+          run! "docker push #{image.latest}" if parser[:latest]
+        end
+
+        images << image
       end
     end
   end
