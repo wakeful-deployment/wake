@@ -68,11 +68,11 @@ if parser[:default]
 end
 
 make_consul_host = ->{
-  wake :hosts, :create, "--cluster", cluster.name, "--from", "server", "--register", "consul", "--quiet"
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "server", "--register", "consul", "--size", "Basic_A1", "--quiet"
 }
 
 make_ssh_proxy = ->{
-  wake :hosts, :create, "--cluster", cluster.name, "--from", "agent", "--name", "sshproxy", "--save", "sshproxy", "--public", "--quiet"
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "agent", "--name", "sshproxy", "--save", "sshproxy", "--public", "--size", "Basic_A1", "--quiet"
 }
 
 make_consul_host.call # explicitly wait for one to finish so that at least one is in the dns
