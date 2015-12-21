@@ -39,7 +39,7 @@ vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
                    storage_account: cluster.azure.storage_account)
 
 Wake.log "Creating a host from #{from}..."
-wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--from", from, "--quiet"
+wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--from", from, "--public", "--quiet"
 
 ip = Azure::FindPublicIP.call(vm: vm).ip
 
