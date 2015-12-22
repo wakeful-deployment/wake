@@ -107,13 +107,20 @@ if parser[:register]
   dns_zone = Azure::DNSZone.new(name: cluster.dns_zone, resource_group: cluster.azure.resource_group)
   record_set = Azure::DNSRecordSet.new(name: parser[:register], dns_zone: dns_zone)
 
-  current_record_set = Azure.resources.dns_record_sets.get!(record_set)
-  addresses = Array(current_record_set.response.parsed_body["properties"]["ARecords"])
-  addresses.each do |a|
-    record_set.add_record ip_address: a["ipv4Address"]
+  current_record_set = Azure.resources.dns_record_sets.get(record_set)
+
+  if current_record_set.response.status > 499
+    panic! "Error fetching the current record set from Azure"
+  end
+
+  unless current_record_set.response.status == 404
+    Array(current_record_set.response.parsed_body["properties"]["ARecords"]).each do |a|
+      record_set.add_record ip_address: a["ipv4Address"]
+    end
   end
 
   record_set.add_record ip_address: private_ip_address
+
   Azure.resources.dns_record_sets.put! record_set
 end
 
