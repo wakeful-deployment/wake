@@ -29,8 +29,7 @@ ADD build.sbt .build-env /opt/app/
 ADD project/ /opt/app/project/
 
 RUN cd /opt/app && \
-  touch .build-env && \
-  eval "$(cat .build-env)" && \
+  eval "$(test -e .build-env && cat .build-env)" && \
   sbt update && \
   sbt compile
 
@@ -38,14 +37,14 @@ ADD . /opt/app/
 
 RUN \
   cd /opt/app && \
-  touch .build-env && \
-  eval "$(cat .build-env)" && \
+  eval "$(test -e .build-env && cat .build-env)" && \
   sbt compile
 
 ARG sha
 ARG start
 
-RUN echo $start > /opt/start && \
+RUN echo cd /opt/app > /opt/start && \
+  echo $start >> /opt/start && \
   chmod +x /opt/start
 
 RUN echo $sha > /opt/app/sha

@@ -52,7 +52,7 @@ GitObject = Struct.new(:permissions, :type, :hash, :filepath) do
   end
 
   def perm
-    permissions[-3..-1]
+    Integer(permissions[-4..-1])
   end
 end
 
@@ -64,7 +64,8 @@ dots do
     Wake.log [:tmpdir, tmpdir]
 
     # copy in .build-env if it's not checked in
-    if File.exists?(".build-env") && !git_objects.any? { |o| o.name == ".build-env" }
+    if File.exists?(".build-env") && !git_objects.any? { |o| o.filepath == ".build-env" }
+      Wake.log "Copying local .build-env into the tmp folder"
       FileUtils.cp(".build-env", tmpdir, preserve: true)
     end
 
@@ -73,7 +74,8 @@ dots do
       nested_dir = File.join(tmpdir, File.dirname(o.filepath))
       FileUtils.mkdir_p(nested_dir)
       content = `git cat-file -p #{o.hash}`
-      File.open(o.filepath, "w", o.perm) { |f| f << content }
+      fullpath = File.join(tmpdir, o.filepath)
+      File.open(fullpath, "w", o.perm) { |f| f << content }
     end
 
     chdir(tmpdir) do
