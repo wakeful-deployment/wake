@@ -25,17 +25,6 @@ parser = OptsParser.parse do |opts|
   opts.boolean  :p, :push,     "Push to the registry"
 end
 
-unless File.exists?("./manifest.json")
-  panic! "Must be run in a directory with a manifest.json"
-end
-
-git_status, _ = run!("git status")
-git_status_last_line = git_status.chomp.lines.last
-
-unless git_status_last_line =~ /^nothing to commit/ || git_status_last_line =~ /^nothing added to commit/
-  panic! "You have uncommited changes to your repo, please stash or clean up then try again"
-end
-
 hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
 revision         = Shellwords.escape parser[:revision]
 full_sha, _      = run!("git rev-parse --verify #{revision}")
@@ -57,8 +46,10 @@ GitObject = Struct.new(:permissions, :type, :hash, :filepath) do
 end
 
 dots do
+  # list all blobs tracked at the given sha
   git_tree = `git ls-tree --full-tree -r #{full_sha}`.chomp.lines.map(&:split)
   git_objects = git_tree.map { |arr| GitObject.new(*arr) }.select(&:blob?)
+  # TODO: support commit type git objects
 
   Dir.mktmpdir do |tmpdir|
     Wake.log [:tmpdir, tmpdir]
@@ -79,6 +70,10 @@ dots do
     end
 
     chdir(tmpdir) do
+      unless File.exists?("./manifest.json")
+        panic! "Must have a manifest.json"
+      end
+
       manifest  = JSONFile.new("manifest.json")
       platform  = manifest.require("platform")
       app       = manifest.require("app")
@@ -93,6 +88,12 @@ dots do
         end
 
         FileUtils.cp(platform_dockerfile, ".") if File.exists? platform_dockerfile
+      end
+
+      unless File.exists?("bin/envexec")
+        envexec = File.join(WAKE_ROOT, "bin", "envexec")
+        FileUtils.mkdir_p "bin"
+        FileUtils.cp(envexec, "bin/")
       end
 
       processes.each do |process_name, process_info|

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+${NODEIP:=127.0.0.1}
+
+complain_and_exit() {
+  echo "Must provide APPLICATION_NAME env variable"
+  exit 1
+}
+
+test -n "$APPLICATION_NAME" || complain_and_exit
+
+envconsul \
+  -consul "$NODEIP:8500" \
+  -sanitize \
+  -upcase \
+  -prefix _wakeful/_env/global \
+  -prefix _wakeful/_env/$APPLICATION_NAME \
+  $@
