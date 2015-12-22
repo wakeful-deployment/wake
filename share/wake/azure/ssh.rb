@@ -9,25 +9,40 @@ module Azure
       WakeConfig.get_or_ask_for("github.username")
     end
 
-    def initialize(ip:, username: github_username, command: nil)
-      @ip       = ip
-      @username = username
-      @command  = command && Shellwords.escape(command)
+    def initialize(ip:, username: github_username, command: nil, force_exec: false)
+      @ip         = ip
+      @username   = username
+      @command    = command && Shellwords.escape(command)
+      @force_exec = force_exec
     end
 
     def command?
       !!command
     end
 
+    def force_exec?
+      !!@force_exec
+    end
+
     def ssh_command
-      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{username}@#{ip}"
+      "ssh -A -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{username}@#{ip}"
+    end
+
+    def full_command
+      if command?
+        "#{ssh_command} #{command}"
+      else
+        ssh_command
+      end
     end
 
     def call
-      if command?
-        @output, @error, @status = run "#{ssh_command} #{command}"
+      Wake.log [:command, full_command]
+
+      if command? && !force_exec?
+        @output, @error, @status = run full_command
       else
-        exec ssh_command
+        exec full_command
       end
     end
 
