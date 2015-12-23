@@ -55,21 +55,13 @@ unless cluster.azure.seed_host_image_uri
   wake "host-images", :create, "--cluster", cluster.name, "--type", "seed", "--save", "--quiet"
 end
 
-host_image_threads = []
-
-host_image_threads << Thread.new do
-  unless cluster.azure.server_host_image_uri
-    wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
-  end
+unless cluster.azure.server_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
 end
 
-host_image_threads << Thread.new do
-  unless cluster.azure.agent_host_image_uri
-    wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
-  end
+unless cluster.azure.agent_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
 end
-
-host_image_threads.map(&:join)
 
 if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name
