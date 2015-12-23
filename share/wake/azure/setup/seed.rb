@@ -23,6 +23,10 @@ module Azure
         @docker_user = docker_user
       end
 
+      def operator_image
+        DockerImage.operator.image
+      end
+
       def fetch_public_key(name)
         uri = URI("https://github.com/#{name}.keys")
         keys = Net::HTTP.get(uri).chomp

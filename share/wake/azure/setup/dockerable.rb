@@ -57,7 +57,16 @@ module Azure
         WakeConfig.get_or_ask_for("docker.hub.organization")
       end
 
-      def self.statsite(cluster)
+      def self.operator(cluster = nil)
+        DockerImage.new(
+          repo: "wake-operator",
+          name: "operator",
+          ports: [],
+          env: {}
+        )
+      end
+
+      def self.statsite(cluster = nil)
         DockerImage.new(
           repo: "wake-statsite",
           name: "statsite",

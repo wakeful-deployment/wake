@@ -29,7 +29,6 @@ def connect_public(vm, user)
 
   Azure::PortPoller.call(ip: ip, port: 22)
 
-  Wake.verbose = true
   Azure::SSH.call(ip: ip, username: user)
 end
 
@@ -40,7 +39,6 @@ def connect_through_proxy(cluster, vm, user)
   ip = result.ip
   ssh = Azure::SSH.new(ip: ip, username: user)
 
-  Wake.verbose = true
   Azure::SSH.call(ip: sshproxy, username: user, command: ssh.ssh_command, force_exec: true)
 end
 

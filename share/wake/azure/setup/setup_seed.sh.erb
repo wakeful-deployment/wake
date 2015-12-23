@@ -67,6 +67,8 @@ for image in $images; do
   docker pull $image
 done
 
+docker pull <%= operator_image %>
+
 # DNS
 
 mv dnsmasq.conf /etc/dnsmasq.conf
