@@ -28,6 +28,7 @@ RUN curl -L -o /opt/src/envconsul.zip "$ENVCONSUL_DOWNLOAD_URL" \
 # Install Scala
 RUN cd /opt/src \
  && curl -L -o scala.tgz "$SCALA_DOWNLOAD_URL" \
+ && mkdir scala \
  && tar -xf scala.tgz -C scala \
  && rm scala.tgz
 
