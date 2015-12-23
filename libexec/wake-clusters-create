@@ -76,6 +76,7 @@ make_ssh_proxy = ->{
 }
 
 make_consul_host.call # explicitly wait for one to finish so that at least one is in the dns
+sleep 60 # give the processes some time to start up
 
 threads = 2.times.map { Thread.new { make_consul_host.call } }
 threads <<              Thread.new { make_ssh_proxy.call }
