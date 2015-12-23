@@ -87,7 +87,8 @@ module Azure
         copy_docker_conf
         copy_fix_hostname
         render_and_copy_dnsmasq_conf
-        write_and_copy_operator_files
+        write_and_copy_operator_json
+        copy_operator_boot
         run_setup
       end
     end

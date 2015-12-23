@@ -20,7 +20,7 @@ module Azure
       end
 
       def call
-        write_and_copy_operator_files
+        write_and_copy_operator_json
         run_setup
       end
     end

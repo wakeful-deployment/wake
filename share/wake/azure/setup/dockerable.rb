@@ -32,7 +32,7 @@ module Azure
         JSON.pretty_generate(boot_images: boot_images)
       end
 
-      def write_and_copy_operator_files
+      def write_and_copy_operator_json
         Dir.mktmpdir do |tmpdir|
           Wake.log [:tmpdir, tmpdir]
 
@@ -41,9 +41,12 @@ module Azure
               f << operator_json
             end
             SCP.call(ip: ip, local_path: "operator.json")
-            SCP.call(ip: ip, local_path: operator_boot_script_path)
           end
         end
+      end
+
+      def copy_operator_boot
+        SCP.call(ip: ip, local_path: operator_boot_script_path)
       end
     end
 
