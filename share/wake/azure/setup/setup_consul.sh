@@ -9,7 +9,7 @@ chmod 644 -R /opt/config
 
 # pre-pull all known global images
 
-$images=$(jq -a -r ".boot_images | map(.image) | .[]" /opt/config/operator.json)
+images=$(jq -a -r ".boot_images | map(.image) | .[]" /opt/config/operator.json)
 
 for image in $images; do
   docker pull $image
