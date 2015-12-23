@@ -36,7 +36,7 @@ apt-get update
 
 # packages
 
-apt-get -y install htop dnsmasq
+apt-get -y install htop dnsmasq jq
 
 # config
 
@@ -58,6 +58,14 @@ chmod 644 -R /opt/config
 chmod 755 /opt/operator_boot
 
 echo "/opt/operator_boot" | tee -a /etc/rc.local
+
+# pre-pull all known global images
+
+$images=$(jq -a -r ".boot_images | map(.image) | .[]" /opt/config/operator.json)
+
+for image in $images; do
+  docker pull $image
+done
 
 # DNS
 
