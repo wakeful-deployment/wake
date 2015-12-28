@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+
+require 'uri'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/ssh_proxy'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake containers get [options]"
+
+  opts.required :host, "Name of the host to get container info about"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+# TODO: add error checking for hosts exists
+
+key = "_wakeful/hosts/#{parser[:host]}/apps?recurse=1"
+
+command = cluster.consul.get key
+
+puts JSON.pretty_generate({
+  output: command.output
+})
