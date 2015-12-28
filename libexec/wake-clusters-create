@@ -82,4 +82,4 @@ threads = 2.times.map { Thread.new { make_consul_host.call } }
 threads <<              Thread.new { make_ssh_proxy.call }
 threads.map(&:join)
 
-puts JSON.pretty_generate(cluster.to_hash)
+puts JSON.pretty_generate(cluster.reload.to_hash)

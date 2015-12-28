@@ -77,16 +77,10 @@ module WakeConfig
 
   def update(key, value)
     config.update(key, value)
-    persist
   end
 
   def delete(key)
     config.delete(key)
-    persist
-  end
-
-  def persist
-    config.persist
   end
 
   def all

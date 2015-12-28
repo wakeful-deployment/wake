@@ -53,7 +53,7 @@ module Azure
     end
 
     def self.call(**opts)
-      new(**opts).call
+      new(**opts).tap { |s| s.call }
     end
   end
 end

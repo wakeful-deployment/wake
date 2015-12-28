@@ -40,6 +40,45 @@ class WakeCluster
     end
   end
 
+  def self.reload
+    clusters.reload
+  end
+
+  def reload
+    self.class.reload
+    self
+  end
+
+  def ssh_proxy
+    SSHProxy.new(cluster: cluster)
+  end
+
+  class Consul
+    def initialize(cluster)
+      @cluster = cluster
+    end
+
+    def put(key, value)
+      uri = URI("http://localhost:8500/v1/kv/#{key}")
+      command = "curl -XPUT -d '#{value}' \"#{uri}\""
+      cluster.ssh_proxy.run! command
+    end
+
+    def get(key)
+      uri = URI("http://localhost:8500/v1/kv/#{key}")
+      command = "curl \"#{uri}\""
+      cluster.ssh_proxy.run! command
+    end
+
+    def delete(key, value)
+      uri = URI("http://localhost:8500/v1/kv/#{key}")
+      command = "curl -XDELETE \"#{uri}\""
+      cluster.ssh_proxy.run! command
+    end
+
+    alias_method :del, :delete
+  end
+
   class AzureClusterInfo
     attr_accessor :resource_group, :storage_account, :vnet, :subnet, :vmi_uri
 
@@ -138,7 +177,6 @@ class WakeCluster
   def update(key, value)
     self.class.clusters.update(full_key(key), value)
     @azure = nil
-    persist
   end
 
   def to_hash
@@ -163,10 +201,5 @@ class WakeCluster
 
   def delete
     self.class.clusters.delete(name)
-    persist
-  end
-
-  def persist
-    self.class.clusters.persist
   end
 end
