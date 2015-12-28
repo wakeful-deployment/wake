@@ -17,7 +17,7 @@ require_relative '../share/wake/tmpdir'
 require_relative '../share/wake/dots'
 
 parser = OptsParser.parse do |opts|
-  opts.banner = "Usage: wake containers create [options]"
+  opts.banner = "Usage: wake container-images create [options]"
 
   opts.required :r, :revision, "The git revision to be packaged"
   opts.boolean  :l, :latest,   "Tag this as the latest revision"
