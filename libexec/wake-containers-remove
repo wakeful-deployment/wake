@@ -8,7 +8,7 @@ require_relative '../share/wake/azure/ssh_proxy'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers remove [options]"
 
-  opts.required :host, "Name of the host to remove the container from"
+  opts.required :node, "Name of the node to remove the container from"
   opts.required :name, "Name of the contianer to remove"
 end
 
@@ -20,7 +20,7 @@ end
 
 # TODO: add error checking for hosts exists
 
-key = "_wakeful/hosts/#{parser[:host]}/apps/#{parser[:name]}"
+key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
 command = cluster.consul.del key
 

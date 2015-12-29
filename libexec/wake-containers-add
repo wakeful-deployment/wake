@@ -3,14 +3,16 @@
 require 'uri'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/cluster'
+require_relative '../share/wake/dots'
 require_relative '../share/wake/azure/ssh_proxy'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers add [options]"
 
-  opts.required :host, "Name of the host to launch the container into"
-  opts.required :name, "Name of the contianer to launch"
-  opts.required :image, "Name of the container image to pull and launch"
+  opts.required :d, :node,  "Name of the host to launch the container into"
+  opts.required :n, :name,  "Name of the contianer to launch"
+  opts.required :i, :image, "Name of the container image to pull and launch"
+  opts.boolean      :wait,  "Wait until the service is running and registered"
 end
 
 cluster = if parser[:cluster]
@@ -21,10 +23,25 @@ end
 
 # TODO: add error checking for hosts exists
 
-key = "_wakeful/hosts/#{parser[:host]}/apps/#{parser[:name]}"
+key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
 command = cluster.consul.put key, parser[:image]
 
-puts JSON.pretty_generate({
-  output: command.output
-})
+if parser[:wait]
+  dots do
+    counter = 0
+
+    loop do
+      counter += 1
+      command  = cluster.consul.node_info(parser[:node])
+      json     = JSON.parse(command.output)
+
+      break if json["Services"].keys.include?(parser[:name])
+      break if counter > 60
+
+      sleep 5
+    end
+  end
+end
+
+puts

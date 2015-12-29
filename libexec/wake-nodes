@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake nodes <command>"
+
+  opts.subcommand :inspect, 'wake-nodes-inspect'
+  opts.subcommand :launch,  'wake-nodes-launch'
+  opts.subcommand :list,    'wake-nodes-list'
+end
+

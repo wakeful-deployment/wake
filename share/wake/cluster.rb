@@ -63,6 +63,12 @@ class WakeCluster
       @cluster = cluster
     end
 
+    def node_info(node)
+      uri = URI("http://localhost:8500/v1/catalog/node/#{node}")
+      command = "curl \"#{uri}\""
+      @cluster.ssh_proxy.run! command
+    end
+
     def put(key, value)
       uri = URI("http://localhost:8500/v1/kv/#{key}")
       command = "curl -XPUT -d '#{value}' \"#{uri}\""
@@ -75,7 +81,7 @@ class WakeCluster
       @cluster.ssh_proxy.run! command
     end
 
-    def delete(key, value)
+    def delete(key)
       uri = URI("http://localhost:8500/v1/kv/#{key}")
       command = "curl -XDELETE \"#{uri}\""
       @cluster.ssh_proxy.run! command
