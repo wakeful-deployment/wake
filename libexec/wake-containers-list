@@ -2,10 +2,11 @@
 
 require 'uri'
 require_relative '../share/wake/parser'
-require_relative '../share/wake/ssh_proxy'
+require_relative '../share/wake/cluster'
+require_relative '../share/wake/azure/ssh_proxy'
 
-OptsParser.parse do |opts|
-  opts.banner = "Usage: wake containers get [options]"
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake containers list [options]"
 
   opts.required :host, "Name of the host to get container info about"
 end

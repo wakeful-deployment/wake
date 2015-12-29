@@ -1,11 +1,12 @@
 require 'shellwords'
-require_relative '../ssh'
+require_relative 'ssh'
+require_relative '../config'
 
 module Azure
   class SSHProxy
     attr_reader :ssh, :ip, :user
 
-    def new(cluster:, user: WakeConfig.get_or_ask_for("github.username"))
+    def initialize(cluster:, user: WakeConfig.get_or_ask_for("github.username"))
       @ip = cluster.require("sshproxy")
       @user = user
       @state = :pending

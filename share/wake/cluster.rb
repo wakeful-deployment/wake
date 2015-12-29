@@ -3,6 +3,7 @@ require 'uri'
 require 'fileutils'
 require_relative 'json_file'
 require_relative 'config'
+require_relative 'azure/ssh_proxy'
 
 path = File.expand_path(File.join(CONFIG_DIR, "clusters"))
 
@@ -50,7 +51,11 @@ class WakeCluster
   end
 
   def ssh_proxy
-    SSHProxy.new(cluster: cluster)
+    Azure::SSHProxy.new(cluster: self)
+  end
+
+  def consul
+    Consul.new(self)
   end
 
   class Consul
@@ -61,19 +66,19 @@ class WakeCluster
     def put(key, value)
       uri = URI("http://localhost:8500/v1/kv/#{key}")
       command = "curl -XPUT -d '#{value}' \"#{uri}\""
-      cluster.ssh_proxy.run! command
+      @cluster.ssh_proxy.run! command
     end
 
     def get(key)
       uri = URI("http://localhost:8500/v1/kv/#{key}")
       command = "curl \"#{uri}\""
-      cluster.ssh_proxy.run! command
+      @cluster.ssh_proxy.run! command
     end
 
     def delete(key, value)
       uri = URI("http://localhost:8500/v1/kv/#{key}")
       command = "curl -XDELETE \"#{uri}\""
-      cluster.ssh_proxy.run! command
+      @cluster.ssh_proxy.run! command
     end
 
     alias_method :del, :delete
