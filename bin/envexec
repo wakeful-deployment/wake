@@ -1,6 +1,6 @@
 #!/bin/bash
 
-${NODEIP:=127.0.0.1}
+${CONSULHOST:="127.0.0.1"}
 
 complain_and_exit() {
   echo "Must provide APPLICATION_NAME env variable"
@@ -10,7 +10,7 @@ complain_and_exit() {
 test -n "$APPLICATION_NAME" || complain_and_exit
 
 exec envconsul \
-  -consul "$NODEIP:8500" \
+  -consul "$CONSULHOST:8500" \
   -sanitize \
   -upcase \
   -prefix _wakeful/_env/global \
