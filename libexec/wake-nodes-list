@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake nodes list [options]"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+command = cluster.consul.nodes
+json    = JSON.parse command.output
+
+nodes   = json.map do |node|
+  {
+    name: node["Node"],
+    ip: node["Address"]
+  }
+end
+
+puts JSON.pretty_generate nodes

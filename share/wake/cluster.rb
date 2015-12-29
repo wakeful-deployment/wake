@@ -63,28 +63,40 @@ class WakeCluster
       @cluster = cluster
     end
 
+    def curl(url, opts = nil)
+      "curl -q #{opts} \"http://localhost:8500/v1#{url}\""
+    end
+
+    def run(string)
+      @cluster.ssh_proxy.run! string
+    end
+
+    def services
+      run curl("/catalog/services")
+    end
+
+    def service_info(service)
+      run curl("/catalog/service/#{service}")
+    end
+
+    def nodes
+      run curl("/catalog/nodes")
+    end
+
     def node_info(node)
-      uri = URI("http://localhost:8500/v1/catalog/node/#{node}")
-      command = "curl \"#{uri}\""
-      @cluster.ssh_proxy.run! command
+      run curl("/catalog/node/#{node}")
     end
 
     def put(key, value)
-      uri = URI("http://localhost:8500/v1/kv/#{key}")
-      command = "curl -XPUT -d '#{value}' \"#{uri}\""
-      @cluster.ssh_proxy.run! command
+      run curl("/kv/#{key}", "-XPUT -d '#{value}'")
     end
 
     def get(key)
-      uri = URI("http://localhost:8500/v1/kv/#{key}")
-      command = "curl \"#{uri}\""
-      @cluster.ssh_proxy.run! command
+      run curl("/kv/#{key}")
     end
 
     def delete(key)
-      uri = URI("http://localhost:8500/v1/kv/#{key}")
-      command = "curl -XDELETE \"#{uri}\""
-      @cluster.ssh_proxy.run! command
+      run curl("/kv/#{key}", "-XDELETE")
     end
 
     alias_method :del, :delete
