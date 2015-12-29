@@ -8,8 +8,9 @@ require_relative '../share/wake/azure/ssh_proxy'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers remove [options]"
 
-  opts.required :node, "Name of the node to remove the container from"
-  opts.required :name, "Name of the contianer to remove"
+  opts.required :d, :node, "Name of the node to remove the container from"
+  opts.required :n, :name, "Name of the contianer to remove"
+  opts.boolean      :wait, "Wait until the service is running and registered"
 end
 
 cluster = if parser[:cluster]
@@ -22,8 +23,23 @@ end
 
 key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
-command = cluster.consul.del key
+cluster.consul.del key
 
-puts JSON.pretty_generate({
-  output: command.output
-})
+if parser[:wait]
+  dots do
+    counter = 0
+
+    loop do
+      counter += 1
+      command  = cluster.consul.node_info(parser[:node])
+      json     = JSON.parse(command.output)
+
+      break if not json["Services"].keys.include?(parser[:name])
+      fail("Container was not removed as a service. Waited 5 minutes.") if counter > 60
+
+      sleep 5
+    end
+  end
+end
+
+puts

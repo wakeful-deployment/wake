@@ -8,7 +8,7 @@ require_relative '../share/wake/azure/ssh_proxy'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers list [options]"
 
-  opts.required :node, "Name of the node to get container info about"
+  opts.required :d, :node, "Name of the node to get container info about"
 end
 
 cluster = if parser[:cluster]
@@ -21,8 +21,22 @@ end
 
 key = "_wakeful/nodes/#{parser[:node]}/apps/?recurse=1"
 
-command = cluster.consul.get key
+kv_command = cluster.consul.get key
+kv_json    = JSON.parse kv_command.output
 
-puts JSON.pretty_generate({
-  output: command.output
-})
+apps = kv_json.map do |app|
+  {
+    name:  app["Key"].split("/").last,
+    image: app["Value"].unpack('m').first
+  }
+end
+
+node_command  = cluster.consul.node_info parser[:node]
+node_json     = JSON.parse node_command.output
+services      = node_json["Services"]
+
+apps = apps.map do |app|
+  app.merge registered: services.key?(app[:name])
+end
+
+puts JSON.pretty_generate(apps)

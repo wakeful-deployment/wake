@@ -25,7 +25,7 @@ end
 
 key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
-command = cluster.consul.put key, parser[:image]
+cluster.consul.put key, parser[:image]
 
 if parser[:wait]
   dots do
@@ -37,7 +37,7 @@ if parser[:wait]
       json     = JSON.parse(command.output)
 
       break if json["Services"].keys.include?(parser[:name])
-      break if counter > 60
+      fail("Container was not registered as a service. Waited 5 minutes.") if counter > 60
 
       sleep 5
     end
