@@ -46,7 +46,6 @@ mkdir -p /opt/config
 
 mv docker.conf /etc/default/docker
 
-mv operator.json /opt/config/operator.json
 mv operator_boot /opt/operator_boot
 
 chown root:root /etc/default/docker
@@ -57,15 +56,7 @@ chmod 644 /etc/default/docker
 chmod 644 -R /opt/config
 chmod 755 /opt/operator_boot
 
-echo "/opt/operator_boot" | tee -a /etc/rc.local
-
-# pre-pull all known global images
-
-images=$(jq -a -r ".boot_images | map(.image) | .[]" /opt/config/operator.json)
-
-for image in $images; do
-  docker pull $image
-done
+# pre-pull operator
 
 docker pull <%= operator_image %>
 

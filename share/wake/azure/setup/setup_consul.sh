@@ -14,3 +14,7 @@ images=$(jq -a -r ".boot_images | map(.image) | .[]" /opt/config/operator.json)
 for image in $images; do
   docker pull $image
 done
+
+# boot on boot
+
+echo "/opt/operator_boot" | tee -a /etc/rc.local
