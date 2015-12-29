@@ -10,5 +10,6 @@ OptsParser.parse do |opts|
   opts.subcommand :delete,  'wake-hosts-delete'
   opts.subcommand :run,     'wake-hosts-run'
   opts.subcommand :setup,   'wake-hosts-setup'
+  opts.subcommand :list,    'wake-hosts-list'
 end
 

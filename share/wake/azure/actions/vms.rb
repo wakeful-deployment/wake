@@ -4,6 +4,9 @@ module Azure
   setup_resources do
     resources :vms do
       version "2015-06-15"
+
+      action :list, verb: :get, path: "/providers/Microsoft.Compute/virtualMachines"
+
       action :get
       action :delete
       action :power_off,  verb: :post, path: "/poweroff"

@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+
+require 'shellwords'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/azure'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake hosts list [options]"
+
+  opts.boolean :e, :extra, "Display extra information (like the ip address)"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+resource_group = cluster.azure.resource_group
+result         = Azure.resources.vms.list!(resource_group)
+
+vms = result.response.parsed_body["value"].map do |v|
+  props = v["properties"]
+
+  size  = props["hardwareProfile"]["vmSize"]
+  nic   = props["networkProfile"]["networkInterfaces"].find { |n| n["properties"]["primary"] }["name"]
+  state = props["provisioningState"]
+  name  = v["name"]
+
+  if parser[:extra]
+    nic_model  = Azure::NIC.new(name: nic, resource_group: resource_group)
+    nic_result = Azure.resources.nics.get(nic_model)
+    props      = nic_result.response.parsed_body["properties"]
+    ips        = props["ipConfigurations"]
+    ip         = ips.find { |i| i["properties"]["primary"] }
+    ip_address = ip["properties"]["privateIPAddress"]
+    mac        = props["macAddress"]
+    state      = props["provisioningState"]
+
+    nic = {
+      name: nic,
+      ip: ip_address,
+      mac: mac,
+      state: state
+    }
+  end
+
+  [{
+    name: name,
+    size: size,
+    nic: nic,
+    state: state
+  }]
+end
+
+puts JSON.pretty_generate vms
