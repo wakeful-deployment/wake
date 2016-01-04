@@ -82,6 +82,18 @@ module Azure
           end
         end
 
+        def custom_data
+          info = {
+            name: model.name,
+            size: model.size,
+            location: model.location,
+            resource_group: model.resource_group.name,
+            created_at: Time.now.to_f.to_s
+          }
+
+          [JSON.generate(info)].pack('m0')
+        end
+
         def os_profile
           {
             computerName: model.name,
@@ -92,7 +104,8 @@ module Azure
               ssh: {
                 publicKeys: public_keys
               }
-            }
+            },
+            customData: custom_data
           }
         end
 

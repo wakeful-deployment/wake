@@ -36,11 +36,27 @@ apt-get update
 
 # packages
 
-apt-get -y install htop dnsmasq jq
+apt-get -y install htop dnsmasq jq unzip
 
 # config
 
 mkdir -p /opt/config
+
+# azure-custom-data
+
+AZURE_CUSTOM_DATA_URL="https://github.com/wakeful-deployment/azure-custom-data/releases/download/v0.0.1/azure-custom-data-x86-linux.zip"
+AZURE_CUSTOM_DATA_SHA256="126d25ccd3360906aa873114f2e6130155075e39c57ba0de2acf2ef16fdf532b"
+
+mkdir /opt/src
+
+curl -L -o /opt/src/azure-custom-data.zip "${AZURE_CUSTOM_DATA_URL}"
+echo "${AZURE_CUSTOM_DATA_SHA256}  /opt/src/azure-custom-data.zip" | tee /opt/src/azure-custom-data.sha256
+sha256sum -c /opt/src/azure-custom-data.sha256
+cd /usr/bin
+unzip /opt/src/azure-custom-data.zip
+cd -
+chmod +x /usr/bin/azure-custom-data
+rm /opt/src/azure-custom-data.zip
 
 # operator
 

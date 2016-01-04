@@ -10,7 +10,6 @@ module Azure
     required :storage_account
     required :nic
     optional :size, default: "Basic_A3"
-    boolean  :setup
     optional :host_image_uri
     optional :admin_username, default: ->{ WakeConfig.get_or_ask_for("github.username") }
     optional :admin_password, default: ->{ SecureRandom.urlsafe_base64(32) }

@@ -9,10 +9,11 @@ require_relative '../share/wake/azure/ssh_proxy'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake containers add [options]"
 
-  opts.required :d, :node,  "Name of the host to launch the container into"
-  opts.required :n, :name,  "Name of the contianer to launch"
-  opts.required :i, :image, "Name of the container image to pull and launch"
-  opts.boolean      :wait,  "Wait until the service is running and registered"
+  opts.optional :c, :cluster, "The name of the cluster to find the node in"
+  opts.required :d, :node,    "Name of the node to launch the container into"
+  opts.required :n, :name,    "Name of the contianer to launch"
+  opts.required :i, :image,   "Name of the container image to pull and launch"
+  opts.boolean      :wait,    "Wait until the service is running and registered"
 end
 
 cluster = if parser[:cluster]
