@@ -13,11 +13,12 @@ require_relative '../share/wake/azure/cluster'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake cluster create [options]"
 
-  opts.required :i, :iaas,         "IaaS vendor (only azure currently)"
-  opts.required :n, :name,         "Name"
-  opts.required :l, :location,     "Location [#{Azure.locations.join(",")}]"
-  opts.optional :z, :zone,         "DNS zone to use for storing different private ips"
-  opts.boolean  :d, :default,      "Make the default cluster"
+  opts.required :i, :iaas,          "IaaS vendor (only azure currently)"
+  opts.required :n, :name,          "Name"
+  opts.required :l, :location,      "Location [#{Azure.locations.join(",")}]"
+  opts.optional :c, :collaborators, "The Github names of the people collaborating on this cluster separated by commas"
+  opts.optional :z, :zone,          "DNS zone to use for storing different private ips"
+  opts.boolean  :d, :default,       "Make the default cluster"
 end
 
 if parser[:name] !~ /[a-z0-9-]+/
@@ -32,6 +33,8 @@ unless Azure.locations.include? parser[:location]
   panic! "'#{parser[:location]}' is not a supported location. Possible locations are: #{Azure.locations.join(",")}"
 end
 
+collaborators = parser.fetch(:collaborators, "").split(",").map(&:strip) + [WakeConfig.get_or_ask_for("github.username")]
+
 cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap do |c|
   zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.wakeful"
 
@@ -39,6 +42,7 @@ cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap d
   c.update("dns_zone", zone)
   c.update("azure.default_size", "Basic_A3")
   c.update("azure.location", parser[:location])
+  c.update("collaborators", collaborators)
 end
 
 # TODO: verify that all the current cluster stuff matches what's in the passed args
