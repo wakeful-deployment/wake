@@ -38,6 +38,14 @@ class OptsParser
     @options[key]
   end
 
+  def fetch(key, default = nil)
+    if default
+      @options.fetch(key, default)
+    else
+      @options.fetch(key)
+    end
+  end
+
   def optional(short_name = nil, name, description, &blk)
     validate_short_name(short_name)
     @optional << name
