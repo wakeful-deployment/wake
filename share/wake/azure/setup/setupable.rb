@@ -44,7 +44,7 @@ module Azure
         render_and_copy_setup_sh
         result = SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
 
-        unless result.exitstatus.success?
+        unless result.status.success?
           fail "unable to run setup script on remote host"
         end
       end
