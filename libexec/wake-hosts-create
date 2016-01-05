@@ -87,6 +87,9 @@ private_ip_address = nil
 dots do
   if public_ip
     Azure.resources.public_ips.put!(public_ip)
+    Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
+    ip_result = Azure.resources.public_ips.get!(public_ip)
+    public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
   end
 
   nic_result = Azure.resources.nics.put!(nic)
@@ -95,12 +98,6 @@ dots do
   Azure.resources.vms.put!(vm)
 
   Azure::ProvisioningStatePoller.call(resource: Azure.resources.vms, model: vm)
-
-  if public_ip
-    Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
-    ip_result = Azure.resources.public_ips.get!(public_ip)
-    public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
-  end
 end
 
 if parser[:register]
