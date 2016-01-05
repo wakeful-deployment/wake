@@ -7,6 +7,7 @@ require_relative '../share/wake/azure'
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts list [options]"
 
+  opts.optional :c, :cluster, "Choose for which cluster to see hosts (defaults to your default cluster)"
   opts.boolean :e, :extra, "Display extra information (like the ip address)"
 end
 
