@@ -45,6 +45,10 @@ module Azure
         result = SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
 
         unless result.status.success?
+          $stderr.puts result.output
+          $stderr.puts "-"*80
+          $stderr.puts result.error
+          $stderr.puts "-"*80
           fail "unable to run setup script on remote host"
         end
       end
