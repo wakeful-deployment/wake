@@ -88,7 +88,7 @@ touch 10-users
 
 <% fetch_collaborators.each do |name, public_key| %>
 
-echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | tee 10-users
+echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | tee -a 10-users
 
 if ! grep -q <%= name %> /etc/passwd; then
   adduser --disabled-password --gecos "" <%= name %>
