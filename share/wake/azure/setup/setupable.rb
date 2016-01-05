@@ -42,7 +42,11 @@ module Azure
 
       def run_setup
         render_and_copy_setup_sh
-        SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
+        result = SSH.call(ip: ip, command: "sudo chmod +x setup.sh && sudo ./setup.sh && rm setup.sh")
+
+        unless result.exitstatus.success?
+          fail "unable to run setup script on remote host"
+        end
       end
     end
   end
