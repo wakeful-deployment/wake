@@ -3,6 +3,7 @@ require_relative 'wake/root'
 require_relative 'wake/escape'
 
 def wake(command, *args)
+  shortCommand = command
   command = "#{WAKE_ROOT}/libexec/wake-#{command}"
 
   formatted_args = args.map { |a| Wake.escape(a) }
@@ -16,7 +17,7 @@ def wake(command, *args)
 
   formatted_string = formatted_args.join(" ")
 
-  Wake.log "$ wake #{formatted_string}"
+  Wake.log "$ wake #{shortCommand} #{formatted_string}"
 
   if Wake.powershell?
     command = "#{ENV["RUBY_EXE_PATH"]} #{command}"
