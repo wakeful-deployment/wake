@@ -8,6 +8,10 @@ environemnts.
 * docker
 * docker-machine
 
+_NOTE: On Windows, you'll need to ensure that OpenSSL has access to a certificate 
+authority bundle.  Download the [Mozilla Certificat bundle](https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt)
+locally, and set the `SSL_CERT_FILE` environment variable to reference this file._
+
 ## Azure
 
 * Service principal is created and has the correct roles

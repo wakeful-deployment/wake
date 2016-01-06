@@ -1,6 +1,7 @@
 require 'optparse'
 require_relative '../wake'
 require_relative 'panic'
+require_relative 'powershell'
 
 class OptsParser
   def self.parse(&blk)
@@ -125,7 +126,12 @@ class OptsParser
     file = File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "libexec", command))
     cmd = "#{file} #{ARGV.drop(1).join(" ")}"
 
-    exec cmd
+    if Wake.powershell?
+      system "#{ENV["RUBY_EXE_PATH"]} #{cmd}"
+      exit $?.exitstatus
+    else
+      exec cmd
+    end
   end
 
   def fetch_subcommand

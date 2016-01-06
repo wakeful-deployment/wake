@@ -3,30 +3,30 @@ require_relative 'powershell'
 module Wake
   module_function
 
-  def escape_char
-    if Wake.powershell?
-      ?`
-    else
-      ?\\
-    end
-  end
-
   private def escape_spaces!(string)
     if Wake.powershell?
       string.replace "\"#{string}\""
     else
-      string.gsub!(/\s/) { "#{escape_char}\s" }
+      string.gsub!(/\s/) { "\\\s" }
     end
   end
 
   private def escape_double_quotes!(string)
-    string.gsub!(/"/) { "#{escape_char}\"" }
+    if Wake.powershell?
+      string.gsub!(/"/) { "\"\"" }
+    else
+      string.gsub!(/"/) { "\\\"" }
+    end
     string.replace "\"#{string}\""
   end
 
   private def escape_single_quotes!(string)
-    string.gsub!(/'/) { "#{escape_char}'" }
-    string.replace "'#{string}'"
+    if Wake.powershell?
+      string.gsub!(/'/) { "''" }
+    else
+      string.gsub!(/'/) { "\\'" }
+    end
+    string.replace "\"#{string}\""
   end
 
   # If string has double quotes, then escape any inner quotes and surround with double quotes
