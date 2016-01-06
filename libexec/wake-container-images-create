@@ -15,6 +15,7 @@ require_relative '../share/wake/git'
 require_relative '../share/wake/chdir'
 require_relative '../share/wake/tmpdir'
 require_relative '../share/wake/dots'
+require_relative '../share/wake/panic'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake container-images create [options]"
@@ -25,8 +26,12 @@ parser = OptsParser.parse do |opts|
   opts.boolean  :p, :push,     "Push to the registry"
 end
 
+unless parser[:revision] =~ /[a-zA-Z0-9-_\.]+/
+  panic! "Revision not allowed \"#{parser[:revision]}\""
+end
+
 hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
-revision         = Shellwords.escape parser[:revision]
+revision         = parser[:revision]
 full_sha, _      = run!("git rev-parse --verify #{revision}")
 sha              = full_sha[0..8]
 images           = [] # so it's in scope at the very end

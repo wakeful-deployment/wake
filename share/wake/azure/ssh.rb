@@ -1,5 +1,6 @@
 require 'shellwords'
 require_relative '../run'
+require_relative '../escape'
 
 module Azure
   class SSH
@@ -12,7 +13,7 @@ module Azure
     def initialize(ip:, username: github_username, command: nil, force_exec: false)
       @ip         = ip
       @username   = username
-      @command    = command && Shellwords.escape(command)
+      @command    = command && Wake.escape(command)
       @force_exec = force_exec
     end
 

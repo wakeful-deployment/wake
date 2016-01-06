@@ -1,8 +1,9 @@
 require 'shellwords'
 require_relative 'wake/root'
+require_relative 'wake/escape'
 
 def wake(*args)
-  formatted_args = args.map { |a| Shellwords.escape(a) }
+  formatted_args = args.map { |a| Wake.escape(a) }
 
   formatted_args << "--verbose" if Wake.verbose?
   formatted_args << "--very-verbose" if Wake.very_verbose?

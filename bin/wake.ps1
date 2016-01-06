@@ -8,6 +8,7 @@ if (!$RUBY -or !(Test-Path $RUBY))
   Throw "Error: Ruby.exe is not installed!"
 }
 
+$env:ISPOWERSHELL=1
 $env:WAKE_ROOT=$LIBEXEC_DIR
 
 if ($args.Length -eq 0)
