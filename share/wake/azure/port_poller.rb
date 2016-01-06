@@ -1,3 +1,5 @@
+require 'socket'
+
 module Azure
   class PortPoller
     attr_reader :ip, :port, :tries, :max_tries
@@ -9,11 +11,18 @@ module Azure
       @max_tries = max_tries
     end
 
+    def is_port_open?(ip, port)
+      begin
+        TCPSocket.new(ip, port)
+      rescue
+        return false
+      end
+      return true
+    end
+
     def call
       loop do
-        `nc -z -w5 #{ip} #{port} 2>&1 > /dev/null`
-
-        if $?.success?
+        if is_port_open? ip, port
           break
         elsif tries >= max_tries
           fail "port #{port} never became available"

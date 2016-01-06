@@ -2,6 +2,7 @@ require 'optparse'
 require_relative '../wake'
 require_relative 'panic'
 require_relative 'powershell'
+require_relative 'exec'
 
 class OptsParser
   def self.parse(&blk)
@@ -130,7 +131,7 @@ class OptsParser
       system "#{ENV["RUBY_EXE_PATH"]} #{cmd}"
       exit $?.exitstatus
     else
-      exec cmd
+      Wake.exec cmd
     end
   end
 

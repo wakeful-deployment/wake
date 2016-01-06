@@ -1,6 +1,6 @@
 require 'shellwords'
 require_relative '../run'
-require_relative '../escape'
+require_relative '../exec'
 
 module Azure
   class SSH
@@ -43,7 +43,7 @@ module Azure
       if command? && !force_exec?
         @output, @error, @status = run full_command
       else
-        exec full_command
+        Wake.exec full_command
       end
     end
 
