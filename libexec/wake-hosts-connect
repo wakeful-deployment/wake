@@ -28,7 +28,6 @@ def connect_public(vm, user)
   ip = result.ip
 
   Azure::PortPoller.call(ip: ip, port: 22)
-
   Azure::SSH.call(ip: ip, username: user)
 end
 
@@ -39,6 +38,7 @@ def connect_through_proxy(cluster, vm, user)
   ip = result.ip
   ssh = Azure::SSH.new(ip: ip, username: user)
 
+  Azure::PortPoller.call(ip: sshproxy, port: 22)
   Azure::SSH.call(ip: sshproxy, username: user, command: ssh.ssh_command, force_exec: true)
 end
 
