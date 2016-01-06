@@ -33,7 +33,9 @@ unless Azure.locations.include? parser[:location]
   panic! "'#{parser[:location]}' is not a supported location. Possible locations are: #{Azure.locations.join(",")}"
 end
 
-collaborators = (parser.fetch(:collaborators, "").split(",").map(&:strip) + [WakeConfig.get_or_ask_for("github.username")]).map(&:downcase)
+collaborators = parser.fetch(:collaborators, "").split(",")
+collaborators.concat [WakeConfig.get_or_ask_for("github.username")]
+collaborators = collaborators.map(&:strip).map(&:downcase)
 
 cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap do |c|
   zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.wakeful"
