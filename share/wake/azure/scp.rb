@@ -16,7 +16,7 @@ module Azure
       @username = username
 
       if Wake.powershell?
-        @local_path.gsub!(/^(.):/) { |m| "/#{m}" }
+        @local_path.gsub!(/^(.):/) {"/#{$1}" }
       end
     end
 
