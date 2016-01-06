@@ -20,7 +20,7 @@ module Azure
       end
 
       def setup_sh_template
-        File.read(File.expand_path("../#{self.class.setup_sh_path}", __FILE__))
+        File.read(File.expand_path("../#{self.class.setup_sh_path}", __FILE__), universal_newline: true)
       end
 
       def render_setup_sh
@@ -32,7 +32,7 @@ module Azure
           Wake.log [:tmpdir, tmpdir]
 
           Dir.chdir(tmpdir) do
-            File.open("setup.sh", "w") do |f|
+            File.open("setup.sh", mode: "w", universal_newline: true) do |f|
               f << render_setup_sh
             end
             SCP.call(ip: ip, local_path: "setup.sh")

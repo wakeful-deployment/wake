@@ -71,7 +71,7 @@ dots do
       FileUtils.mkdir_p(nested_dir)
       content = `git cat-file -p #{o.hash}`
       fullpath = File.join(tmpdir, o.filepath)
-      File.open(fullpath, "w", o.perm) { |f| f << content }
+      File.open(fullpath, "w", mode: o.perm, universal_newline: true) { |f| f << content }
     end
 
     chdir(tmpdir) do
@@ -111,7 +111,7 @@ dots do
           org: hub_organization
         )
 
-        File.open(".dockerignore", "w+") do |f|
+        File.open(".dockerignore", mode: "w+", universal_newline: true) do |f|
           f << ".git/*"
           f << ".processes/*"
         end

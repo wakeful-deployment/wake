@@ -37,7 +37,7 @@ module Azure
           Wake.log [:tmpdir, tmpdir]
 
           Dir.chdir(tmpdir) do
-            File.open("operator.json", "w") do |f|
+            File.open("operator.json", mode: "w", universal_newline: true) do |f|
               f << operator_json
             end
             SCP.call(ip: ip, local_path: "operator.json")

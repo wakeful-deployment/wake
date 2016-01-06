@@ -73,7 +73,7 @@ vm_opts = {
 }
 
 if from == :bare
-  ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")))
+  ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")), universal_newline: true)
   vm_opts[:ssh_public_key] = ssh_public_key
 else
   vm_opts[:host_image_uri] = from

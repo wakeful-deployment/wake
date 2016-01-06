@@ -52,7 +52,7 @@ module Azure
       end
 
       def dnsmasq_conf_template
-        File.read(File.expand_path("../dnsmasq.conf.erb", __FILE__))
+        File.read(File.expand_path("../dnsmasq.conf.erb", __FILE__), universal_newline: true)
       end
 
       def render_dnsmasq_conf
@@ -64,7 +64,7 @@ module Azure
           Wake.log [:tmpdir, tmpdir]
 
           Dir.chdir(tmpdir) do
-            File.open("dnsmasq.conf", "w") do |f|
+            File.open("dnsmasq.conf", mode: "w", universal_newline: true) do |f|
               f << render_dnsmasq_conf
             end
             SCP.call(ip: ip, local_path: "dnsmasq.conf")

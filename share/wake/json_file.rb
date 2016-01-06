@@ -24,7 +24,7 @@ class JSONFile
                    ["r+", WRITE_LOCK]
                  end
 
-    File.open(@path, mode) do |f|
+    File.open(@path, mode: mode, universal_newline: true) do |f|
       counter = 0
 
       until f.flock(lock) do

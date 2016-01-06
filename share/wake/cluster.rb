@@ -9,7 +9,7 @@ path = File.expand_path(File.join(CONFIG_DIR, "clusters"))
 
 unless File.exists?(path)
   FileUtils.mkdir_p(File.dirname(path))
-  File.open(path, "w") do |f|
+  File.open(path, mode: "w", universal_newline: true) do |f|
     f << "{}"
   end
 end
