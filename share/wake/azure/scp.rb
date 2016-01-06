@@ -1,4 +1,5 @@
 require_relative '../run'
+require_relative '../powershell'
 
 module Azure
   class SCP
@@ -13,6 +14,10 @@ module Azure
       @local_path = local_path
       @destination = destination
       @username = username
+
+      if Wake.powershell?
+        @local_path.gsub!(/^(.):/) { |m| "/#{m}" }
+      end
     end
 
     def scp_command

@@ -1,4 +1,5 @@
 require_relative '../azure'
+require_relative '../azure/provisioning_state_poller'
 
 class Azure::Cluster
   attr_reader :cluster
@@ -32,6 +33,8 @@ class Azure::Cluster
   def create_storage_account
     Azure.resources.storage_accounts.exists?(storage_account) ||
       Azure.resources.storage_accounts.put!(storage_account)
+
+    Azure::ProvisioningStatePoller.call(resource: Azure.resources.storage_accounts, model: storage_account)
 
     cluster.update("azure.storage_account", storage_account.name)
   end
