@@ -38,7 +38,7 @@ module Wake
   #   "foo bar"                     => "foo\\ bar"                          || "\"foo bar\"" for windows
   #   "something \"else\" in here"  => "\"something \\\"else\\\" in here\"" || "\"something `\"else`\" in here" for windows
   def escape(string)
-    string = string.dup # mutate a copy
+    string = string.to_s.dup # mutate a copy
 
     if string.include? ?"
       escape_double_quotes! string
