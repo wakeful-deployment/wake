@@ -62,10 +62,10 @@ Wake.log "Capturing to vhd file..."
 
 dots do
   Azure.resources.vms.power_off!(vm)
-  sleep 1 # azure is slow sometimes
+  sleep 10 # azure is slow sometimes
 
   Azure.resources.vms.generalize!(vm)
-  sleep 1 # azure is slow sometimes
+  sleep 10 # azure is slow sometimes
 
   Azure.resources.vms.capture!(vm).tap do |a|
     body = a.response.parsed_body

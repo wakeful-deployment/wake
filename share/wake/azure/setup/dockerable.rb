@@ -33,7 +33,7 @@ module Azure
       end
 
       def services_hash
-        boot_images.each_with_object({}) do |hash, i|
+        boot_images.each_with_object({}) do |i, hash|
           hash[i.name] = i.to_hash
         end
       end
