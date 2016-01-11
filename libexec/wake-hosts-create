@@ -93,6 +93,7 @@ dots do
   nic_result = Azure.resources.nics.put!(nic)
   private_ip_address = nic_result.response.parsed_body["properties"]["ipConfigurations"].first["properties"]["privateIPAddress"]
 
+  sleep 10
   Azure.resources.vms.put!(vm)
 
   Azure::ProvisioningStatePoller.call(resource: Azure.resources.vms, model: vm)
