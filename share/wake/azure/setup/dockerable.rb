@@ -24,7 +24,7 @@ module Azure
 
       def boot_images
         self.class.boot_images.map do |image_name|
-          DockerImage.send(image_name, cluster).to_hash
+          DockerImage.send(image_name, cluster)
         end
       end
 
@@ -34,7 +34,7 @@ module Azure
 
       def services_hash
         boot_images.each_with_object({}) do |hash, i|
-          hash[i.name] = i
+          hash[i.name] = i.to_hash
         end
       end
 
