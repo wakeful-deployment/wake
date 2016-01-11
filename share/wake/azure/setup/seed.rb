@@ -29,7 +29,7 @@ module Azure
 
       def fetch_public_key(name)
         uri = URI("https://github.com/#{name}.keys")
-        keys = Net::HTTP.get(uri).chomp
+        Net::HTTP.get(uri).chomp
       end
 
       def fetch_collaborators

@@ -29,7 +29,13 @@ module Azure
       end
 
       def operator_json
-        JSON.pretty_generate(boot_images: boot_images)
+        JSON.pretty_generate(services: services_hash)
+      end
+
+      def services_hash
+        boot_images.each_with_object({}) do |hash, i|
+          hash[i.name] = i
+        end
       end
 
       def write_and_copy_operator_json
@@ -147,7 +153,6 @@ module Azure
       def to_hash
         {
           "env"   => env,
-          "name"  => name,
           "image" => image,
           "ports" => ports
         }

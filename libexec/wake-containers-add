@@ -13,6 +13,7 @@ parser = OptsParser.parse do |opts|
   opts.required :d, :node,    "Name of the node to launch the container into"
   opts.required :n, :name,    "Name of the contianer to launch"
   opts.required :i, :image,   "Name of the container image to pull and launch"
+  opts.optional :t, :tags,    "List of tags separated by commas"
   opts.boolean      :wait,    "Wait until the service is running and registered"
 end
 
@@ -26,7 +27,12 @@ end
 
 key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
-cluster.consul.put key, parser[:image]
+service = {
+  image: parser[:image],
+  tags: parser.fetch(:tags, "").split(",").map(&:strip)
+}
+
+cluster.consul.put key, JSON.generate(service)
 
 if parser[:wait]
   dots do

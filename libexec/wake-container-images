@@ -7,4 +7,3 @@ OptsParser.parse do |opts|
 
   opts.subcommand :create, 'wake-container-images-create'
 end
-

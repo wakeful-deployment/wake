@@ -26,9 +26,12 @@ kv_command = cluster.consul.get key
 kv_json    = JSON.parse kv_command.output
 
 apps = kv_json.map do |app|
+  service = app["Value"].unpack('m').first
+
   {
     name:  app["Key"].split("/").last,
-    image: app["Value"].unpack('m').first
+    image: service["image"],
+    tags:  service["tags"]
   }
 end
 
