@@ -26,7 +26,7 @@ parser = OptsParser.parse do |opts|
   opts.boolean  :p, :push,     "Push to the registry"
 end
 
-unless parser[:revision] =~ /[a-zA-Z0-9-_\.]+/
+unless parser[:revision] =~ /[a-zA-Z0-9\-_\.]+/
   panic! "Revision not allowed \"#{parser[:revision]}\""
 end
 
@@ -71,7 +71,7 @@ dots do
       FileUtils.mkdir_p(nested_dir)
       content = `git cat-file -p #{o.hash}`
       fullpath = File.join(tmpdir, o.filepath)
-      File.open(fullpath, "w", mode: o.perm, universal_newline: true) { |f| f << content }
+      File.open(fullpath, mode: "w", perm: o.perm, universal_newline: true) { |f| f << content }
     end
 
     chdir(tmpdir) do
