@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake env get [options]"
+
+  opts.optional :c, :cluster, "The name of the cluster to get variables for"
+  opts.required :a, :app,     "The name of the application to get an ENV variable for"
+  opts.required :n, :name,    "The name of the variable to get"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+result = cluster.consul.env.get(app: parser[:app], name: parser[:name])
+
+puts result

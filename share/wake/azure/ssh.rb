@@ -53,6 +53,12 @@ module Azure
       end
     end
 
+    def success?
+      if @status
+        @status.success?
+      end
+    end
+
     def self.call(**opts)
       new(**opts).tap { |s| s.call }
     end

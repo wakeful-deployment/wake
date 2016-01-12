@@ -50,5 +50,9 @@ module Azure
     def exitstatus
       @ssh.exitstatus if @state == :complete
     end
+
+    def success?
+      @state == :complete && @ssh.success?
+    end
   end
 end

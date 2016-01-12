@@ -16,8 +16,7 @@ else
   WakeCluster.default
 end
 
-command = cluster.consul.node_info(parser[:node])
-json    = JSON.parse command.output
+json = cluster.consul.catalog.node_info(parser[:node])
 
 node = {
   name:     json["Node"]["Node"],

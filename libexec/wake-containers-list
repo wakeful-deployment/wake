@@ -20,22 +20,21 @@ end
 
 # TODO: add error checking for hosts exists
 
-key = "_wakeful/nodes/#{parser[:node]}/apps/?recurse=1"
+key = "_wakeful/nodes/#{parser[:node]}/apps/"
 
-kv_command = cluster.consul.get key
-kv_json    = JSON.parse kv_command.output
+pairs = cluster.consul.kv.get key, recurse: true
 
-apps = kv_json.map do |app|
-  service = app["Value"].unpack('m').first
+apps = pairs.map do |pair|
+  service = JSON.parse(pair.value)
 
   {
-    name:  app["Key"].split("/").last,
+    name:  pair.name,
     image: service["image"],
     tags:  service["tags"]
   }
 end
 
-node_command  = cluster.consul.node_info parser[:node]
+node_command  = cluster.consul.catalog.node_info parser[:node]
 node_json     = JSON.parse node_command.output
 services      = node_json["Services"]
 

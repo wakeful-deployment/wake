@@ -1,45 +1,49 @@
+require 'json'
+require 'shellwords'
+require_relative 'consul/catalog'
+require_relative 'consul/kv'
+require_relative 'consul/env'
+
 module Wake
-  class Consul
-    def initialize(cluster)
-      @cluster = cluster
-    end
+  module Consul
+    ConsulCurlFailed = Class.new(StandardError)
 
-    def curl(url, opts = nil)
-      "curl -q #{opts} \"http://localhost:8500/v1#{url}\""
-    end
+    class Base
+      def initialize(cluster)
+        @cluster = cluster
+      end
 
-    def run(string)
-      @cluster.ssh_proxy.run! string
-    end
+      def curl(url, opts = nil)
+        # Shellwords is alright here because we know we are running this curl on linux/bash
+        url = Shellwords.escape("http://localhost:8500/v1#{url}")
+        "curl -f -q #{opts} #{url}"
+      end
 
-    def services
-      run curl("/catalog/services")
-    end
+      def run(string)
+        command = @cluster.ssh_proxy.run string
 
-    def service_info(service)
-      run curl("/catalog/service/#{service}")
-    end
+        if command.success?
+          begin
+            JSON.parse(command.output)
+          rescue JSON::ParserError
+            command.output
+          end
+        else
+          fail ConsulCurlFailed, command.error
+        end
+      end
 
-    def nodes
-      run curl("/catalog/nodes")
-    end
+      def catalog
+        @catalog ||= Catalog.new(self)
+      end
 
-    def node_info(node)
-      run curl("/catalog/node/#{node}")
-    end
+      def kv
+        @kv ||= KV.new(self)
+      end
 
-    def put(key, value)
-      run curl("/kv/#{key}", "-XPUT -d '#{value}'")
+      def env
+        @env ||= ENV.new(kv)
+      end
     end
-
-    def get(key)
-      run curl("/kv/#{key}")
-    end
-
-    def delete(key)
-      run curl("/kv/#{key}", "-XDELETE")
-    end
-
-    alias_method :del, :delete
   end
 end

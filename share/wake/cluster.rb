@@ -53,11 +53,11 @@ class WakeCluster
   end
 
   def ssh_proxy
-    @ssh_proxy ||= Azure::SSHProxy.new(cluster: self)
+    Azure::SSHProxy.new(cluster: self)
   end
 
   def consul
-    @consul ||= Wake::Consul.new(self)
+    @consul ||= Wake::Consul::Base.new(self)
   end
 
   def azure

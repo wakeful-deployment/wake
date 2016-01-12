@@ -15,8 +15,7 @@ else
   WakeCluster.default
 end
 
-command = cluster.consul.nodes
-json    = JSON.parse command.output
+json = cluster.consul.catalog.nodes
 
 nodes   = json.map do |node|
   {

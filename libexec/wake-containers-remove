@@ -24,7 +24,7 @@ end
 
 key = "_wakeful/nodes/#{parser[:node]}/apps/#{parser[:name]}"
 
-cluster.consul.del key
+cluster.consul.kv.del key
 
 if parser[:wait]
   dots do
@@ -32,8 +32,7 @@ if parser[:wait]
 
     loop do
       counter += 1
-      command  = cluster.consul.node_info(parser[:node])
-      json     = JSON.parse(command.output)
+      json = cluster.consul.catalog.node_info(parser[:node])
 
       break if not json["Services"].keys.include?(parser[:name])
       fail("Container was not removed as a service. Waited 5 minutes.") if counter > 60
