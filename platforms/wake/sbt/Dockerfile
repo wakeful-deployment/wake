@@ -56,7 +56,7 @@ ADD . /opt/app/
 # forealz compile
 RUN cd /opt/app \
  && eval "$(test -e .build-env && cat .build-env)" \
- && sbt compile
+ && sbt assembly
 
 ARG sha
 ARG start
