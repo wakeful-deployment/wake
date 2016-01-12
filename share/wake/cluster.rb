@@ -3,7 +3,9 @@ require 'uri'
 require 'fileutils'
 require_relative 'json_file'
 require_relative 'config'
+require_relative 'consul'
 require_relative 'azure/ssh_proxy'
+require_relative 'azure/cluster_info'
 
 path = File.expand_path(File.join(CONFIG_DIR, "clusters"))
 
@@ -51,128 +53,15 @@ class WakeCluster
   end
 
   def ssh_proxy
-    Azure::SSHProxy.new(cluster: self)
+    @ssh_proxy ||= Azure::SSHProxy.new(cluster: self)
   end
 
   def consul
-    Consul.new(self)
+    @consul ||= Wake::Consul.new(self)
   end
 
-  class Consul
-    def initialize(cluster)
-      @cluster = cluster
-    end
-
-    def curl(url, opts = nil)
-      "curl -q #{opts} \"http://localhost:8500/v1#{url}\""
-    end
-
-    def run(string)
-      @cluster.ssh_proxy.run! string
-    end
-
-    def services
-      run curl("/catalog/services")
-    end
-
-    def service_info(service)
-      run curl("/catalog/service/#{service}")
-    end
-
-    def nodes
-      run curl("/catalog/nodes")
-    end
-
-    def node_info(node)
-      run curl("/catalog/node/#{node}")
-    end
-
-    def put(key, value)
-      run curl("/kv/#{key}", "-XPUT -d '#{value}'")
-    end
-
-    def get(key)
-      run curl("/kv/#{key}")
-    end
-
-    def delete(key)
-      run curl("/kv/#{key}", "-XDELETE")
-    end
-
-    alias_method :del, :delete
-  end
-
-  class AzureClusterInfo
-    attr_accessor :resource_group, :storage_account, :vnet, :subnet, :vmi_uri
-
-    def initialize(cluster)
-      @cluster = cluster
-    end
-
-    def azure
-      @cluster.require("azure")
-    end
-
-    def location
-      azure.require("location")
-    end
-
-    def default_size
-      azure.require("default_size")
-    end
-
-    def agent_host_image_uri
-      if azure["agent_host_image_uri"]
-        URI(azure["agent_host_image_uri"])
-      end
-    end
-
-    def server_host_image_uri
-      if azure["server_host_image_uri"]
-        URI(azure["server_host_image_uri"])
-      end
-    end
-
-    def seed_host_image_uri
-      if azure["seed_host_image_uri"]
-        URI(azure["seed_host_image_uri"])
-      end
-    end
-
-    def self.get(m, &blk)
-      ivar_name = :"@#{m}"
-      string_name = m.to_s
-
-      define_method(:"#{m}?") do
-        !!azure[string_name]
-      end
-
-      define_method(m) do
-        instance_variable_get(ivar_name) || instance_exec(&blk).tap do |result|
-          instance_variable_set(ivar_name, result)
-        end
-      end
-    end
-
-    get :resource_group do
-      Azure::ResourceGroup.new(subscription: Azure.subscription,
-                               name: azure.require("resource_group"),
-                               location: location)
-    end
-
-    get :storage_account do
-      Azure::StorageAccount.new(resource_group: resource_group,
-                                name: azure.require("storage_account"))
-    end
-
-    get :vnet do
-      Azure::Vnet.new(resource_group: resource_group,
-                      name: azure.require("vnet"))
-    end
-
-    get :subnet do
-      Azure::Subnet.new(vnet: vnet, name: azure.require("subnet"))
-    end
+  def azure
+    @azure ||= Azure::ClusterInfo.new(self)
   end
 
   attr_reader :name
@@ -204,10 +93,6 @@ class WakeCluster
 
   def to_hash
     self.class.clusters[name].merge("name" => name)
-  end
-
-  def azure
-    @azure ||= AzureClusterInfo.new(self)
   end
 
   def iaas
