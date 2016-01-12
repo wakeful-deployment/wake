@@ -66,7 +66,6 @@ module Azure
       def self.operator(cluster = nil)
         DockerImage.new(
           repo: "wake-operator",
-          rev: "c60758244",
           name: "operator",
           ports: [],
           env: {}
