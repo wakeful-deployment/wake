@@ -26,7 +26,11 @@ module Wake
         name = path.split("/").last
         value = h["Value"].unpack(?m).first
 
-        Pair.new path, name, value
+        {
+          path: path,
+          name: name,
+          value: value
+        }
       end
 
       def get(key, recurse: false)

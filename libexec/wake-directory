@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake directory <command>"
+
+  opts.subcommand :show,             'wake-directory-show'
+  opts.subcommand :"add-service",    'wake-directory-add-service'
+  opts.subcommand :"remove-service", 'wake-directory-remove-service'
+end
+

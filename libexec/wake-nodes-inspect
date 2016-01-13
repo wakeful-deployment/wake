@@ -16,12 +16,6 @@ else
   WakeCluster.default
 end
 
-json = cluster.consul.catalog.node_info(parser[:node])
-
-node = {
-  name:     json["Node"]["Node"],
-  ip:       json["Node"]["Address"],
-  services: json["Services"].keys
-}
+node = cluster.consul.catalog.node(parser[:node])
 
 puts JSON.pretty_generate node

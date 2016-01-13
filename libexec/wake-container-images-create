@@ -8,6 +8,7 @@ require_relative '../share/wake'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/root'
 require_relative '../share/wake/json_file'
+require_relative '../share/wake/manifest'
 require_relative '../share/wake/run'
 require_relative '../share/wake/config'
 require_relative '../share/wake/git'
@@ -122,20 +123,17 @@ dots do
         panic! "Must have a manifest.json"
       end
 
-      manifest  = JSONFile.new("manifest.json")
-      platform  = manifest.require("platform")
-      app       = manifest.require("app")
-      platform  = manifest.require("platform")
-      processes = manifest.require("processes")
+      manifest  = Manifest.new
+      platform  = manifest.platform
+      app       = manifest.app
+      processes = manifest.processes
 
       unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
-        platform_dockerfile = File.join(WAKE_ROOT, "platforms", "wake", platform, "Dockerfile")
-
-        unless platform_dockerfile || File.exists?("./Dockerfile")
+        unless manifest.dockerfile?
           fail "No Dockerfile found for platform '#{platform}'"
         end
 
-        FileUtils.cp(platform_dockerfile, ".") if File.exists? platform_dockerfile
+        FileUtils.cp(manifest.dockerfile, ".")
       end
 
       unless File.exists?("bin/envexec")

@@ -33,7 +33,7 @@ module Wake
 
       def get_all(app:)
         @kv.get(url(app), recurse: true).each_with_object({}) do |pair, hash|
-          hash[pair.name] = pair.value
+          hash[pair[:name]] = pair[:value]
         end
       rescue ConsulCurlFailed
         {}
@@ -41,7 +41,7 @@ module Wake
 
       def get(app:, name:)
         validate! name
-        @kv.get(url(app, name)).value
+        @kv.get(url(app, name))[:value]
       rescue ConsulCurlFailed
         nil
       end

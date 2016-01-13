@@ -2,12 +2,13 @@
 
 require_relative '../share/wake/parser'
 require_relative '../share/wake/cluster'
+require_relative '../share/wake/manifest'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake env get-all [options]"
 
   opts.optional :c, :cluster, "The name of the cluster to get variables for"
-  opts.required :a, :app,     "The name of the application to list the ENV variables for"
+  opts.optional :a, :app,     "The name of the application to list the ENV variables for"
 end
 
 cluster = if parser[:cluster]
@@ -15,6 +16,12 @@ cluster = if parser[:cluster]
 else
   WakeCluster.default
 end
+
+if parser[:app].nil? && !Wake::Manifest.exists?
+  panic! "Must either provide --app or have a valid manifest.json in the current directory"
+end
+
+parser[:app] ||= Wake::Manifest.new.app
 
 pairs = cluster.consul.env.get_all(app: parser[:app])
 

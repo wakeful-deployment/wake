@@ -2,12 +2,30 @@
 
 require_relative '../share/wake/parser'
 require_relative '../share/wake/cluster'
+require_relative '../share/wake/manifest'
+
+# alternate set syntax
+
+REGEX = /^\s*([_A-Z0-9]+)=([^\s]+)\s*$/.freeze
+
+matches = ARGV.map { |string| REGEX.match string }
+
+if matches.all?
+  manifest = Wake::Manifest.new
+  cluster  = WakeCluster.default
+
+  matches.each do |match|
+    cluster.consul.env.set(app: manifest.app, name: match[1], value: match[2])
+  end
+
+  exit
+end
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake env set [options]"
 
   opts.optional :c, :cluster, "The name of the cluster to set variables for"
-  opts.required :a, :app,     "The name of the application to set an ENV variable for"
+  opts.optional :a, :app,     "The name of the application to set an ENV variable for"
   opts.required :n, :name,    "The name of the variable to set"
   opts.required :d, :value,   "The value of the variable to set"
 end
@@ -17,5 +35,11 @@ cluster = if parser[:cluster]
 else
   WakeCluster.default
 end
+
+if parser[:app].nil? && !Wake::Manifest.exists?
+  panic! "Must either provide --app or have a valid manifest.json in the current directory"
+end
+
+parser[:app] ||= Wake::Manifest.new.app
 
 cluster.consul.env.set(app: parser[:app], name: parser[:name], value: parser[:value])

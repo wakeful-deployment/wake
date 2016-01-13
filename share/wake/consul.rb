@@ -3,6 +3,7 @@ require 'shellwords'
 require_relative 'consul/catalog'
 require_relative 'consul/kv'
 require_relative 'consul/env'
+require_relative 'consul/directory'
 
 module Wake
   module Consul
@@ -43,6 +44,10 @@ module Wake
 
       def env
         @env ||= ENV.new(kv)
+      end
+
+      def directory
+        @directory ||= Directory.new(kv)
       end
     end
   end
