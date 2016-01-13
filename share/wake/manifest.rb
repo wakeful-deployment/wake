@@ -25,7 +25,7 @@ module Wake
     end
 
     def dockerfile?
-      File.exists? dockerfile_path
+      File.exists? dockerfile
     end
 
     def dockerfile

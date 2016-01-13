@@ -94,10 +94,31 @@ GitObject = Struct.new(:permissions, :type, :hash, :filepath) do
   end
 end
 
+$current_directory = Pathname.new(Dir.pwd).freeze
+$git_project_dir = Pathname.new(`git rev-parse --show-toplevel`.chomp).freeze
+
+def in_subdirectory?
+  $current_directory != $git_project_dir
+end
+
+def filter_git_tree_in_subdir(git_tree)
+  project_dir = $git_project_dir.to_s.gsub(/\/$/, '') + "/"
+  subdir_regex = Regexp.new("^#{$current_directory.to_s.gsub(project_dir, '')}/")
+
+  git_tree.select do |row|
+    row[3] =~ subdir_regex
+  end.map do |row|
+    row[3].gsub!(subdir_regex, '')
+    row
+  end
+end
+
 dots do
   # list all blobs tracked at the given sha
   git_tree = `git ls-tree --full-tree -r #{full_sha}`.chomp.lines.map(&:split)
-  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.select(&:blob?)
+  git_tree = filter_git_tree_in_subdir(git_tree) if in_subdirectory?
+
+  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.tap { |a| p a }.select(&:blob?)
   # TODO: support commit type git objects
 
   Dir.mktmpdir do |tmpdir|
