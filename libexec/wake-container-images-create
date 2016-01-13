@@ -118,7 +118,7 @@ dots do
   git_tree = `git ls-tree --full-tree -r #{full_sha}`.chomp.lines.map(&:split)
   git_tree = filter_git_tree_in_subdir(git_tree) if in_subdirectory?
 
-  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.tap { |a| p a }.select(&:blob?)
+  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.select(&:blob?)
   # TODO: support commit type git objects
 
   Dir.mktmpdir do |tmpdir|
