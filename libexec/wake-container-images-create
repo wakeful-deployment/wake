@@ -119,7 +119,7 @@ dots do
     end
 
     chdir(tmpdir) do
-      unless Manifest.exists?
+      unless Wake::Manifest.exists?
         panic! "Must have a manifest.json"
       end
 
