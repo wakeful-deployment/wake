@@ -5,8 +5,6 @@ module Wake
     class Directory
       extend Forwardable
 
-      SERVICE_PATH_REGEX = %r{\A_wakeful/nodes/\w+/services/\w+\z}.freeze
-
       def initialize(kv)
         @kv = kv
       end
@@ -25,9 +23,7 @@ module Wake
             inner_h[part] ||= {}
           end
 
-          if path =~ SERVICE_PATH_REGEX
-            value = JSON.parse(value)
-          end
+          value = [?{, ?[].include?(value[0]) ? JSON.parse(value) : value rescue value
 
           inner_hash[name] = value
         end
