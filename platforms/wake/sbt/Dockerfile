@@ -4,8 +4,6 @@ RUN mkdir /opt/app && \
   mkdir /opt/app/bin && \
   mkdir /opt/src
 
-EXPOSE 8000
-
 ENV ENVCONSUL_VERSION 0.6.0
 ENV ENVCONSUL_DOWNLOAD_URL https://github.com/hashicorp/envconsul/releases/download/v$ENVCONSUL_VERSION/envconsul_${ENVCONSUL_VERSION}_linux_amd64.zip
 ENV ENVCONSUL_SHA256 d675aa6776e40c5b116dabc625a4ab6d8f6ac1f3b03337f6cad1834fee813aef
