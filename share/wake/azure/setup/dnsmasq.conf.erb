@@ -1,0 +1,10 @@
+no-resolv
+no-poll
+
+server=/.consul/127.0.0.1#8600
+
+<% ns_server_ips.each do |ip| %>
+server=/.wakeful/<%= ip %>
+<% end %>
+
+server=8.8.8.8

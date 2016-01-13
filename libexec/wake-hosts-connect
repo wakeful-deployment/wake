@@ -4,14 +4,17 @@ require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
 require_relative '../share/wake/azure/find_public_ip'
+require_relative '../share/wake/azure/find_private_ip'
 require_relative '../share/wake/azure/ssh'
+require_relative '../share/wake/azure/port_poller'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts connect [options]"
 
-  opts.required :n, :name,    "Name"
-  opts.optional :u, :user,    "Username to use when connecting"
-  opts.optional :c, :cluster, "Cluster the host is in"
+  opts.required :n, :name,     "Name"
+  opts.boolean  :d, :direct,   "Don't use the sshproxy"
+  opts.optional :u, :username, "Username to use when connecting"
+  opts.optional :c, :cluster,  "Cluster the host is in"
 end
 
 cluster = if parser[:cluster]
@@ -20,12 +23,30 @@ else
   WakeCluster.default
 end
 
+def connect_public(vm, user)
+  result = Azure::FindPublicIP.call(vm: vm)
+  ip = result.ip
+
+  Azure::PortPoller.call(ip: ip, port: 22)
+  Azure::SSH.call(ip: ip, username: user)
+end
+
+def connect_through_proxy(cluster, vm, user)
+  sshproxy = cluster.require("sshproxy")
+
+  result = Azure::FindPrivateIP.call(vm: vm)
+  ip = result.ip
+  ssh = Azure::SSH.new(ip: ip, username: user)
+
+  Azure::PortPoller.call(ip: sshproxy, port: 22)
+  Azure::SSH.call(ip: sshproxy, username: user, command: ssh.ssh_command, force_exec: true)
+end
+
 vm = Azure::VM.new(resource_group: cluster.azure.resource_group, name: parser[:name])
+user = parser[:username] || WakeConfig.get_or_ask_for("github.username")
 
-result = Azure::FindPublicIP.call(vm: vm)
-ip = result.ip
-user = parser[:user] || WakeConfig.get_or_ask_for("github.username")
-
-Wake.verbose = true
-Azure::SSH.call(ip: ip, user: user)
-
+if parser[:direct]
+  connect_public vm, user
+else
+  connect_through_proxy cluster, vm, user
+end

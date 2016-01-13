@@ -4,6 +4,9 @@ module Azure
   setup_resources do
     resources :vms do
       version "2015-06-15"
+
+      action :list, verb: :get, path: "/providers/Microsoft.Compute/virtualMachines"
+
       action :get
       action :delete
       action :power_off,  verb: :post, path: "/poweroff"
@@ -44,7 +47,7 @@ module Azure
               disk.merge!({
                 osType: 'Linux',
                 image: {
-                  uri: model.host_image_uri
+                  uri: model.host_image_uri.to_s
                 }
               })
             end
@@ -79,6 +82,18 @@ module Azure
           end
         end
 
+        def custom_data
+          info = {
+            name: model.name,
+            size: model.size,
+            location: model.location,
+            resource_group: model.resource_group.name,
+            created_at: Time.now.to_f.to_s
+          }
+
+          [JSON.generate(info)].pack('m0')
+        end
+
         def os_profile
           {
             computerName: model.name,
@@ -89,7 +104,8 @@ module Azure
               ssh: {
                 publicKeys: public_keys
               }
-            }
+            },
+            customData: custom_data
           }
         end
 

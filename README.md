@@ -8,6 +8,12 @@ environemnts.
 * docker
 * docker-machine
 
+_NOTE: On Windows, you'll need to ensure that OpenSSL has access to a certificate 
+authority bundle.  Download the [Mozilla Certificat bundle](https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt)
+locally, and set the `SSL_CERT_FILE` environment variable to reference this file._
+
+You may also want to add wake's bin directory to your path for ease of use.
+
 ## Azure
 
 * Service principal is created and has the correct roles
@@ -33,7 +39,9 @@ stored in a git repo
 **service**: is a running application process hosted in a container on
 a host in a cluster and registered in consul
 
-**container**: a docker container to run one service on a host/node
+**container**: a running docker container on a host for a service
+
+**container-image**: a fetchable docker image compiled and ready to run
 
 # WTF???
 
@@ -55,23 +63,24 @@ Every command supports these three flags:
 
 # Cluster
 
-A cluster is a collection of hosts (nodes) and applications (services).
-A cluster has one consul database which is used to store and validate
-the details of the cluster. Which apps should be runing where, how many
-nodes there are, and all other cluster related questions should be
-answerable from the consul database.
+A cluster is a collection of hosts (nodes) and application processess
+(services).  A cluster has one consul database which is used to store
+and validate the details of the cluster. Which apps should be runing
+where, how many nodes there are, and all other cluster related questions
+should be answerable from the consul database.
 
-The consul database is also used to store secrets facilitated by vault.
+The consul database is also used to store secrets that are injected in
+the env of a service during boot.
 
 Clusters are kept track of in `~/.wake/clusters` and can be managed with
 the `wake clusters` command. Joining a cluster is as easy as finding the
-IP of the consul master and having permission to send commands and
-queries to it.
+IP of the ssh proxy and having permission to send commands and queries
+to it.
 
 ## Create a cluster
 
 ```sh
-$ wake clusters create --name wake-test-1 --iaas azure --location eastus --host-image --default
+$ wake clusters create --name wake-test-1 --iaas azure --location eastus --default
 ```
 
 _NOTE: azure is the only supported IaaS provider at this time._
@@ -82,22 +91,21 @@ This will:
 2. create a storage account
 3. create a vnet
 4. create a subnet
-5. create a host image that is setup to run services
-6. set this cluster as the default cluster
+5. create three host images
+6. create three consul servers
+7. create one ssh proxy with a public ip address and record it to the
+   local clusters file
+8. set this cluster as the default cluster
 
 - - -
 
 _NOTE: Everything after here is not finished._
 
-- create tunnel public ip
 - create awake public ip
-- launch tunnel vm
-- launch consul 1 vm
-- launch consul 2 and 3 vms
-- launch vault vm
+- launch logstash vm
+- launch graphite vm
 - launch rsyslog vm
 - launch awake vm
-- create a vault and save the 5 keys somewhere
 - ...
 
 _NOTE: this is not finalized yet, but it's a good idea of where we are

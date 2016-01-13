@@ -1,23 +1,33 @@
 #!/usr/bin/env ruby
 
 require 'json'
+require 'uri'
 require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
 require_relative '../share/wake/azure/ssh'
 require_relative '../share/wake/azure/provisioning_state_poller'
+require_relative '../share/wake/azure/port_poller'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake hosts create [options]"
 
-  opts.boolean  :b, :bare,             "Make a bare vm not from an existing host image"
-  opts.optional :n, :name,             "Name"
-  opts.optional :i, :"host-image-uri", "URI to an existing host image"
-  opts.optional :c, :cluster,          "The name of the cluster to create the vm into"
-  opts.boolean  :k, :connect,          "ssh to the box after it's up and running"
-  opts.boolean  :q, :quiet,            "Don't output the machine details"
+  opts.optional :n, :name,     "Name"
+  opts.optional :f, :from,     "Saved name or URI of an existing host image"
+  opts.optional :c, :cluster,  "The name of the cluster to create the vm into"
+  opts.optional :r, :register, "Register this machine in the dns"
+  opts.optional :s, :save,     "Save this machine to the local cluster config"
+  opts.optional :z, :size,     "Size of the host machine (Default is Basic_A3)"
+  opts.boolean  :p, :public,   "Give this host a public ip address"
+  opts.boolean  :q, :quiet,    "Don't output the machine details"
 end
+
+if parser[:save] && !parser[:public]
+  panic! "Cannot provide --save and not also provide --public - can only save public hosts to the local cluster config"
+end
+
+from = parser[:from] || "agent"
 
 name = parser[:name] || SecureRandom.hex(8)
 
@@ -27,14 +37,26 @@ else
   WakeCluster.default
 end
 
+from = if from == "bare"
+  :bare
+elsif from =~ %r{^http}
+  URI(from)
+else
+  key_name = "azure.#{from}_host_image_uri"
+  URI(cluster.require(key_name))
+end
+
 vm_name        = name
+vm_size        = parser[:size]
 nic_name       = "#{vm_name}-nic"
-public_ip_name = "#{vm_name}-ip"
 
 Wake.log "Creating a vm '#{vm_name}' in cluster '#{cluster.name}'..."
 
-public_ip = Azure::PublicIP.new(resource_group: cluster.azure.resource_group,
-                                name:           public_ip_name)
+public_ip = if parser[:public]
+              public_ip_name = "#{vm_name}-ip"
+              Azure::PublicIP.new(resource_group: cluster.azure.resource_group,
+                                  name:           public_ip_name)
+            end
 
 nic = Azure::NIC.new(resource_group: cluster.azure.resource_group,
                      name:           nic_name,
@@ -46,14 +68,15 @@ vm_opts = {
   resource_group:  cluster.azure.resource_group,
   storage_account: cluster.azure.storage_account,
   name:            vm_name,
-  nic:             nic,
+  size:            vm_size,
+  nic:             nic
 }
 
-if parser[:bare]
-  ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")))
+if from == :bare
+  ssh_public_key           = File.read(File.expand_path(WakeConfig.get_or_ask_for("ssh.public_key.path")), universal_newline: true)
   vm_opts[:ssh_public_key] = ssh_public_key
 else
-  vm_opts[:host_image_uri] = parser[:"host-image-uri"] || cluster.azure.default_host_image_uri
+  vm_opts[:host_image_uri] = from
 end
 
 vm = Azure::VM.new(**vm_opts)
@@ -62,29 +85,59 @@ public_ip_address = nil
 private_ip_address = nil
 
 dots do
-  Azure.resources.public_ips.put!(public_ip)
+  if public_ip
+    Azure.resources.public_ips.put!(public_ip)
+    Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
+  end
 
   nic_result = Azure.resources.nics.put!(nic)
   private_ip_address = nic_result.response.parsed_body["properties"]["ipConfigurations"].first["properties"]["privateIPAddress"]
 
+  sleep 10
   Azure.resources.vms.put!(vm)
 
   Azure::ProvisioningStatePoller.call(resource: Azure.resources.vms, model: vm)
 
-  Azure::ProvisioningStatePoller.call(resource: Azure.resources.public_ips, model: public_ip)
-  ip_result = Azure.resources.public_ips.get!(public_ip)
-  public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
+  if public_ip
+    ip_result = Azure.resources.public_ips.get!(public_ip)
+    public_ip_address = ip_result.response.parsed_body["properties"]["ipAddress"]
+  end
+end
+
+if parser[:register]
+  dns_zone = Azure::DNSZone.new(name: cluster.dns_zone, resource_group: cluster.azure.resource_group)
+  record_set = Azure::DNSRecordSet.new(name: parser[:register], dns_zone: dns_zone)
+
+  current_record_set = Azure.resources.dns_record_sets.get(record_set)
+
+  if current_record_set.response.status > 499
+    panic! "Error fetching the current record set from Azure"
+  end
+
+  unless current_record_set.response.status == 404
+    Array(current_record_set.response.parsed_body["properties"]["ARecords"]).each do |a|
+      record_set.add_record ip_address: a["ipv4Address"]
+    end
+  end
+
+  record_set.add_record ip_address: private_ip_address
+
+  Azure.resources.dns_record_sets.put! record_set
+end
+
+if parser[:save] && public_ip_address
+  cluster.update(parser[:save], public_ip_address)
 end
 
 unless parser[:quiet]
-  puts JSON.pretty_generate({
+  info = {
     name: vm_name,
-    public_ip_address: public_ip_address,
     private_ip_address: private_ip_address
-  })
-end
+  }
 
-if parser[:connect]
-  user = WakeConfig.get_or_ask_for("github.username")
-  Azure::SSH.call(ip: public_ip_address, user: user)
+  if public_ip_address
+    info[:public_ip_address] = public_ip_address
+  end
+
+  puts JSON.pretty_generate(info)
 end

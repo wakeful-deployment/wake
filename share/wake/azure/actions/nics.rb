@@ -49,4 +49,3 @@ module Azure
     end
   end
 end
-

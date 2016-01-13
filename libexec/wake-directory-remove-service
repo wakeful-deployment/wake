@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+
+require 'uri'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+require_relative '../share/wake/azure/ssh_proxy'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake directory remove-service [options]"
+
+  opts.optional :c, :cluster, "The name of the cluster to find the node in"
+  opts.required :d, :node,    "Name of the node to remove the container from"
+  opts.required :n, :name,    "Name of the contianer to remove"
+  opts.boolean      :wait,    "Wait until the service is running and registered"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+# TODO: add error checking for hosts exists
+
+cluster.consul.directory.remove_service node: parser[:node], name: parser[:name]
+
+if parser[:wait]
+  dots do
+    counter = 0
+
+    loop do
+      counter += 1
+      node     = cluster.consul.catalog.node(parser[:node])
+
+      break if not node[:services].keys.include?(parser[:name])
+
+      if counter > 60
+        fail("Container was not removed as a service. Waited 5 minutes.")
+      end
+
+      sleep 5
+    end
+  end
+end
+
+puts

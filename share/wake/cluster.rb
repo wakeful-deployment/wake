@@ -3,12 +3,15 @@ require 'uri'
 require 'fileutils'
 require_relative 'json_file'
 require_relative 'config'
+require_relative 'consul'
+require_relative 'azure/ssh_proxy'
+require_relative 'azure/cluster_info'
 
 path = File.expand_path(File.join(CONFIG_DIR, "clusters"))
 
 unless File.exists?(path)
   FileUtils.mkdir_p(File.dirname(path))
-  File.open(path, "w") do |f|
+  File.open(path, mode: "w", universal_newline: true) do |f|
     f << "{}"
   end
 end
@@ -40,65 +43,25 @@ class WakeCluster
     end
   end
 
-  class AzureClusterInfo
-    attr_accessor :resource_group, :storage_account, :vnet, :subnet, :vmi_uri
+  def self.reload
+    clusters.reload
+  end
 
-    def initialize(cluster)
-      @cluster = cluster
-    end
+  def reload
+    self.class.reload
+    self
+  end
 
-    def azure
-      @cluster.require("azure")
-    end
+  def ssh_proxy
+    Azure::SSHProxy.new(cluster: self)
+  end
 
-    def location
-      azure.require("location")
-    end
+  def consul
+    @consul ||= Wake::Consul::Base.new(self)
+  end
 
-    def default_size
-      azure.require("default_size")
-    end
-
-    def default_host_image_uri
-      if azure["default_host_image_uri"]
-        URI(azure["default_host_image_uri"])
-      end
-    end
-
-    def self.get(m, &blk)
-      ivar_name = :"@#{m}"
-      string_name = m.to_s
-
-      define_method(:"#{m}?") do
-        !!azure[string_name]
-      end
-
-      define_method(m) do
-        instance_variable_get(ivar_name) || instance_exec(&blk).tap do |result|
-          instance_variable_set(ivar_name, result)
-        end
-      end
-    end
-
-    get :resource_group do
-      Azure::ResourceGroup.new(subscription: Azure.subscription,
-                               name: azure.require("resource_group"),
-                               location: location)
-    end
-
-    get :storage_account do
-      Azure::StorageAccount.new(resource_group: resource_group,
-                                name: azure.require("storage_account"))
-    end
-
-    get :vnet do
-      Azure::Vnet.new(resource_group: resource_group,
-                      name: azure.require("vnet"))
-    end
-
-    get :subnet do
-      Azure::Subnet.new(vnet: vnet, name: azure.require("subnet"))
-    end
+  def azure
+    @azure ||= Azure::ClusterInfo.new(self)
   end
 
   attr_reader :name
@@ -126,15 +89,18 @@ class WakeCluster
   def update(key, value)
     self.class.clusters.update(full_key(key), value)
     @azure = nil
-    persist
   end
 
   def to_hash
     self.class.clusters[name].merge("name" => name)
   end
 
-  def azure
-    @azure ||= AzureClusterInfo.new(self)
+  def iaas
+    self["iaas"]
+  end
+
+  def dns_zone
+    self["dns_zone"]
   end
 
   def collaborators
@@ -143,10 +109,5 @@ class WakeCluster
 
   def delete
     self.class.clusters.delete(name)
-    persist
-  end
-
-  def persist
-    self.class.clusters.persist
   end
 end

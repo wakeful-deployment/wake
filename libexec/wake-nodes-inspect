@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake nodes inspect [options]"
+
+  opts.required :d, :node,    "Name of the node to inspect"
+  opts.optional :c, :cluster, "The name of the cluster to find the node"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+node = cluster.consul.catalog.node(parser[:node])
+
+puts JSON.pretty_generate node

@@ -3,6 +3,21 @@
 require_relative '../share/wake/parser'
 require_relative '../share/wake/config'
 
+# alternate set syntax
+
+REGEX = /^\s*([a-z\.\-_A-Z0-9]+)=([^\s]+)\s*$/.freeze
+
+matches = ARGV.map { |string| REGEX.match string }
+
+if matches.all?
+  matches.each do |match|
+    WakeConfig.update(match[1], match[2])
+  end
+  exit
+end
+
+# normal parser version
+
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake config set [options]"
 

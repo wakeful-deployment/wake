@@ -1,8 +1,12 @@
 require 'shellwords'
 require_relative 'wake/root'
+require_relative 'wake/escape'
 
-def wake(*args)
-  formatted_args = args.map { |a| Shellwords.escape(a) }
+def wake(command, *args)
+  shortCommand = command
+  command = "#{WAKE_ROOT}/libexec/wake-#{command}"
+
+  formatted_args = args.map { |a| Wake.escape(a) }
 
   formatted_args << "--verbose" if Wake.verbose?
   formatted_args << "--very-verbose" if Wake.very_verbose?
@@ -13,9 +17,13 @@ def wake(*args)
 
   formatted_string = formatted_args.join(" ")
 
-  Wake.log "$ wake #{formatted_string}"
+  Wake.log "$ wake #{shortCommand} #{formatted_string}"
 
-  system "#{WAKE_ROOT}/bin/wake #{formatted_string}"
+  if Wake.powershell?
+    command = "#{ENV["RUBY_EXE_PATH"]} #{command}"
+  end
+
+  system "#{command} #{formatted_string}"
 
   unless $?.success?
     fail "exited with status #{$?.exitstatus}"

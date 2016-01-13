@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+
+require_relative '../share/wake/parser'
+
+OptsParser.parse do |opts|
+  opts.banner = "Usage: wake env <command>"
+
+  opts.subcommand :"get-all", 'wake-env-get-all'
+  opts.subcommand :get, 'wake-env-get'
+  opts.subcommand :set, 'wake-env-set'
+  opts.subcommand :unset, 'wake-env-unset'
+end
+

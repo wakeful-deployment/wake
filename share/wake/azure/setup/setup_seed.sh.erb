@@ -1,0 +1,110 @@
+#!/bin/bash
+
+set -x
+set -e
+
+# clear rc.local
+
+truncate -s 0 /etc/rc.local
+
+# fix the hostname to actually be in etc hosts
+
+mv fix_hostname /opt/fix_hostname
+chmod 755 /opt/fix_hostname
+echo /opt/fix_hostname | tee -a /etc/rc.local
+
+# docker
+
+wget -qO- https://get.docker.com/ | sh
+sleep 10
+
+echo "Waiting on docker to boot up..."
+last_exit="1"
+while [[ $last_exit != "0" ]]; do
+  docker ps > /dev/null
+  last_exit=$?
+done
+
+docker login -u "<%= docker_user.username %>" -p "<%= docker_user.password %>" -e "<%= docker_user.email %>"
+sleep 10
+
+cp ~/.docker/config.json /opt/docker-auth.json
+
+# update
+
+apt-get update
+
+# packages
+
+apt-get -y install htop dnsmasq jq unzip
+
+# config
+
+mkdir -p /opt/config
+
+# azure-custom-data
+
+AZURE_CUSTOM_DATA_URL="https://github.com/wakeful-deployment/azure-custom-data/releases/download/v0.0.1/azure-custom-data-x86-linux.zip"
+AZURE_CUSTOM_DATA_SHA256="126d25ccd3360906aa873114f2e6130155075e39c57ba0de2acf2ef16fdf532b"
+
+mkdir /opt/src
+
+curl -L -o /opt/src/azure-custom-data.zip "${AZURE_CUSTOM_DATA_URL}"
+echo "${AZURE_CUSTOM_DATA_SHA256}  /opt/src/azure-custom-data.zip" | tee /opt/src/azure-custom-data.sha256
+sha256sum -c /opt/src/azure-custom-data.sha256
+cd /usr/bin
+unzip /opt/src/azure-custom-data.zip
+cd -
+chmod +x /usr/bin/azure-custom-data
+rm /opt/src/azure-custom-data.zip
+
+# operator
+
+mv docker.conf /etc/default/docker
+
+mv operator_boot /opt/operator_boot
+
+chown root:root /etc/default/docker
+chown root:root -R /opt/config
+chown root:root /opt/operator_boot
+
+chmod 644 /etc/default/docker
+chmod 644 -R /opt/config
+chmod 755 /opt/operator_boot
+
+# pre-pull operator
+
+docker pull <%= operator_image %>
+
+# DNS
+
+mv dnsmasq.conf /etc/dnsmasq.conf
+
+# SSH
+
+mv sshd_config /etc/ssh/sshd_config
+
+touch 10-users
+
+<% fetch_collaborators.each do |name, public_key| %>
+
+echo "<%= name %> ALL=(ALL) NOPASSWD:ALL" | tee -a 10-users
+
+if ! grep -q <%= name %> /etc/passwd; then
+  adduser --disabled-password --gecos "" <%= name %>
+fi
+
+mkdir -p /home/<%= name %>/.ssh
+echo "<%= public_key %>" | tee /home/<%= name %>/.ssh/authorized_keys
+chmod 600 /home/<%= name %>/.ssh/authorized_keys # must be 600
+chown -R <%= name %>:<%= name %> /home/<%= name %>
+
+<% end %>
+
+mv 10-users /etc/sudoers.d/
+chown root:root /etc/sudoers.d/10-users
+chmod 440 /etc/sudoers.d/10-users # must be 440
+
+# this must be last
+
+# rm /etc/sudoers.d/90-cloud-init-users

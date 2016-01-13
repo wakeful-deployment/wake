@@ -1,29 +1,49 @@
 require 'shellwords'
 require_relative '../run'
+require_relative '../exec'
 
 module Azure
   class SSH
-    attr_reader :ip, :user, :command, :output, :error, :status
+    attr_reader :ip, :username, :command, :output, :error, :status
 
-    def initialize(ip:, user: "awake", command: nil)
-      @ip      = ip
-      @user    = user
-      @command = command && Shellwords.escape(command)
+    def github_username
+      WakeConfig.get_or_ask_for("github.username")
+    end
+
+    def initialize(ip:, username: github_username, command: nil, force_exec: false)
+      @ip         = ip
+      @username   = username
+      @command    = command && Wake.escape(command)
+      @force_exec = force_exec
     end
 
     def command?
       !!command
     end
 
+    def force_exec?
+      !!@force_exec
+    end
+
     def ssh_command
-      "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{user}@#{ip}"
+      "ssh -A -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no #{username}@#{ip}"
+    end
+
+    def full_command
+      if command?
+        "#{ssh_command} #{command}"
+      else
+        ssh_command
+      end
     end
 
     def call
-      if command?
-        @output, @error, @status = run "#{ssh_command} #{command}"
+      Wake.log [:command, full_command]
+
+      if command? && !force_exec?
+        @output, @error, @status = run full_command
       else
-        exec ssh_command
+        Wake.exec full_command
       end
     end
 
@@ -33,8 +53,14 @@ module Azure
       end
     end
 
+    def success?
+      if @status
+        @status.success?
+      end
+    end
+
     def self.call(**opts)
-      new(**opts).call
+      new(**opts).tap { |s| s.call }
     end
   end
 end

@@ -8,15 +8,17 @@ require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/cluster'
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake cluster create [options]"
 
-  opts.required :i, :iaas,         "IaaS vendor (only azure currently)"
-  opts.required :n, :name,         "Name"
-  opts.required :l, :location,     "Location [#{Azure.locations.join(",")}]"
-  opts.boolean  :I, :"host-image", "Make a default vmi for this cluster"
-  opts.boolean  :d, :default,      "Make the default cluster"
+  opts.required :i, :iaas,          "IaaS vendor (only azure currently)"
+  opts.required :n, :name,          "Name"
+  opts.required :l, :location,      "Location [#{Azure.locations.join(",")}]"
+  opts.optional :c, :collaborators, "The Github names of the people collaborating on this cluster separated by commas"
+  opts.optional :z, :zone,          "DNS zone to use for storing different private ips"
+  opts.boolean  :d, :default,       "Make the default cluster"
 end
 
 if parser[:name] !~ /[a-z0-9-]+/
@@ -31,66 +33,59 @@ unless Azure.locations.include? parser[:location]
   panic! "'#{parser[:location]}' is not a supported location. Possible locations are: #{Azure.locations.join(",")}"
 end
 
+collaborators = parser.fetch(:collaborators, "").split(",")
+collaborators.concat [WakeConfig.get_or_ask_for("github.username")]
+collaborators = collaborators.map(&:strip).map(&:downcase)
+
 cluster = WakeCluster.get(parser[:name]) || WakeCluster.new(parser[:name]).tap do |c|
+  zone = parser[:zone] || "#{parser[:name]}.#{Azure.subscription_id}.wakeful"
+
   c.update("iaas", "azure")
+  c.update("dns_zone", zone)
   c.update("azure.default_size", "Basic_A3")
   c.update("azure.location", parser[:location])
+  c.update("collaborators", collaborators)
 end
 
-# TODO: verify that all the current cluster stuff matches what's in the crap
-
-if cluster["azure.location"].nil?
-  cluster.update("azure.location", parser[:location])
-end
+# TODO: verify that all the current cluster stuff matches what's in the passed args
 
 if cluster["azure.location"] != parser[:location]
   panic! "This cluster is already setup in a different location"
 end
 
 dots do
-
-  resource_group = Azure::ResourceGroup.new(subscription: Azure.subscription,
-                                            name:         parser[:name],
-                                            location:     parser[:location])
-
-  Azure.resources.resource_groups.exists?(resource_group) ||
-    Azure.resources.resource_groups.put!(resource_group)
-
-  cluster.update("azure.resource_group", resource_group.name)
-
-
-  storage_account_name = resource_group.name.gsub(/-/, '')
-  storage_account = Azure::StorageAccount.new(resource_group: resource_group, name: storage_account_name)
-
-  Azure.resources.storage_accounts.exists?(storage_account) ||
-    Azure.resources.storage_accounts.put!(storage_account)
-
-  cluster.update("azure.storage_account", storage_account.name)
-
-  vnet_name = "#{parser[:name]}-vnet"
-  vnet = Azure::Vnet.new(resource_group: resource_group, name: vnet_name)
-
-  Azure.resources.vnets.exists?(vnet) ||
-    Azure.resources.vnets.put!(vnet)
-
-  cluster.update("azure.vnet", vnet.name)
-
-  subnet_name = "#{parser[:name]}-subnet"
-  subnet = Azure::Subnet.new(vnet: vnet, name: subnet_name)
-
-  Azure.resources.subnets.exists?(subnet) ||
-    Azure.resources.subnets.put!(subnet)
-
-  cluster.update("azure.subnet", subnet.name)
-
+  Azure::Cluster.call(cluster: cluster)
 end
 
-if parser[:"host-image"]
-  wake "host-images", :create, "--cluster", cluster.name, "--default", "--quiet"
+unless cluster.azure.seed_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "seed", "--save", "--quiet"
+end
+
+unless cluster.azure.server_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "server", "--save", "--quiet"
+end
+
+unless cluster.azure.agent_host_image_uri
+  wake "host-images", :create, "--cluster", cluster.name, "--type", "agent", "--save", "--quiet"
 end
 
 if parser[:default]
   wake :clusters, "set-default", "--name", cluster.name
 end
 
-puts JSON.pretty_generate(cluster.to_hash)
+make_consul_host = ->{
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "server", "--register", "consul", "--size", "Basic_A1", "--quiet"
+}
+
+make_ssh_proxy = ->{
+  wake :hosts, :create, "--cluster", cluster.name, "--from", "agent", "--name", "sshproxy", "--save", "sshproxy", "--public", "--size", "Basic_A1", "--quiet"
+}
+
+make_consul_host.call # explicitly wait for one to finish so that at least one is in the dns
+sleep 60 # give the processes some time to start up
+
+threads = 2.times.map { Thread.new { make_consul_host.call } }
+threads <<              Thread.new { make_ssh_proxy.call }
+threads.map(&:join)
+
+puts JSON.pretty_generate(cluster.reload.to_hash)

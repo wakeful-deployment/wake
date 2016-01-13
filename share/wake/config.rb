@@ -6,7 +6,7 @@ path = File.expand_path(File.join(CONFIG_DIR, "config"))
 
 unless File.exists?(path)
   FileUtils.mkdir_p(File.dirname(path))
-  File.open(path, "w") do |f|
+  File.open(path, mode: "w", universal_newline: true) do |f|
     f << "{}"
   end
 end
@@ -77,16 +77,10 @@ module WakeConfig
 
   def update(key, value)
     config.update(key, value)
-    persist
   end
 
   def delete(key)
     config.delete(key)
-    persist
-  end
-
-  def persist
-    config.persist
   end
 
   def all

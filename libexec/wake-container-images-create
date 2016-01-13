@@ -1,0 +1,181 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'pathname'
+require 'tmpdir'
+require 'shellwords'
+require_relative '../share/wake'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/root'
+require_relative '../share/wake/json_file'
+require_relative '../share/wake/manifest'
+require_relative '../share/wake/run'
+require_relative '../share/wake/config'
+require_relative '../share/wake/git'
+require_relative '../share/wake/chdir'
+require_relative '../share/wake/tmpdir'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/panic'
+
+class DockerImage
+  def initialize(org:, app:, process:, rev:, release: false)
+    @org = org
+    @app = app
+    @process = process
+    @rev = rev
+    @release = release
+  end
+
+  def unique_name
+    if @app == @process
+      @app
+    else
+      "#{@app}-#{@process}"
+    end
+  end
+
+  def name
+    "#{@org}/wake-#{unique_name}:#{@rev}"
+  end
+
+  def release_name
+    "#{@org}/wake-#{unique_name}-release:#{@rev}"
+  end
+
+  def latest
+    "#{@org}/wake-#{unique_name}:latest"
+  end
+
+  def to_hash
+    hash = {
+      org: @org,
+      app: @app,
+      process: @process,
+      rev: @rev,
+      name: name
+    }
+
+    hash.merge!(release_name: release_name) if @release
+
+    hash
+  end
+end
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake container-images create [options]"
+
+  opts.required :r, :revision, "The git revision to be packaged"
+  opts.boolean  :l, :latest,   "Tag this as the latest revision"
+  opts.boolean  :f, :force,    "Force a tag for a revision"
+  opts.boolean  :p, :push,     "Push to the registry"
+end
+
+unless parser[:revision] =~ /[a-zA-Z0-9\-_\.]+/
+  panic! "Revision not allowed \"#{parser[:revision]}\""
+end
+
+hub_organization = WakeConfig.get_or_ask_for("docker.hub.organization")
+revision         = parser[:revision]
+full_sha, _      = run!("git rev-parse --verify #{revision}")
+sha              = full_sha[0..8]
+images           = [] # so it's in scope at the very end
+
+GitObject = Struct.new(:permissions, :type, :hash, :filepath) do
+  def path
+    Pathname.new(filepath)
+  end
+
+  def blob?
+    type == "blob"
+  end
+
+  def perm
+    Integer(permissions[-4..-1])
+  end
+end
+
+dots do
+  # list all blobs tracked at the given sha
+  git_tree = `git ls-tree --full-tree -r #{full_sha}`.chomp.lines.map(&:split)
+  git_objects = git_tree.map { |arr| GitObject.new(*arr) }.select(&:blob?)
+  # TODO: support commit type git objects
+
+  Dir.mktmpdir do |tmpdir|
+    Wake.log [:tmpdir, tmpdir]
+
+    # copy in .build-env if it's not checked in
+    if File.exists?(".build-env") && !git_objects.any? { |o| o.filepath == ".build-env" }
+      Wake.log "Copying local .build-env into the tmp folder"
+      FileUtils.cp(".build-env", tmpdir, preserve: true)
+    end
+
+    # copy every file over to the same structure
+    git_objects.each do |o|
+      nested_dir = File.join(tmpdir, File.dirname(o.filepath))
+      FileUtils.mkdir_p(nested_dir)
+      content = `git cat-file -p #{o.hash}`
+      fullpath = File.join(tmpdir, o.filepath)
+      File.open(fullpath, mode: "w", perm: o.perm, universal_newline: true) { |f| f << content }
+    end
+
+    chdir(tmpdir) do
+      unless Wake::Manifest.exists?
+        panic! "Must have a manifest.json"
+      end
+
+      manifest  = Wake::Manifest.new
+      platform  = manifest.platform
+      app       = manifest.app
+      processes = manifest.processes
+
+      unless File.exists?("Dockerfile") # you can opt into your own Dockerfile
+        unless manifest.dockerfile?
+          fail "No Dockerfile found for platform '#{platform}'"
+        end
+
+        FileUtils.cp(manifest.dockerfile, ".")
+      end
+
+      unless File.exists?("bin/envexec")
+        envexec = File.join(WAKE_ROOT, "bin", "envexec")
+        FileUtils.mkdir_p "bin"
+        FileUtils.cp(envexec, "bin/")
+      end
+
+      processes.each do |process_name, process_info|
+        start = process_info["start"]
+
+        image = DockerImage.new(
+          app: app,
+          process: process_name,
+          rev: sha,
+          org: hub_organization
+        )
+
+        File.open(".dockerignore", mode: "w+", universal_newline: true) do |f|
+          f << ".git/*"
+          f << ".processes/*"
+        end
+
+        Wake.log "Building #{image.name}..."
+
+        run! "docker build -t #{image.name} --build-arg start='#{start}' --build-arg sha='#{sha}' ."
+
+        if parser[:latest]
+          run! "docker tag -f #{image.name} #{image.latest}"
+        end
+
+        if parser[:push]
+          Wake.log "Pushing images..."
+
+          run! "docker push #{image.name}"
+          run! "docker push #{image.latest}" if parser[:latest]
+        end
+
+        images << image
+      end
+    end
+  end
+end
+
+puts JSON.pretty_generate(images.map(&:to_hash))

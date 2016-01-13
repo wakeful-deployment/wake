@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+
+require 'uri'
+require_relative '../share/wake/parser'
+require_relative '../share/wake/cluster'
+require_relative '../share/wake/dots'
+require_relative '../share/wake/azure/ssh_proxy'
+
+parser = OptsParser.parse do |opts|
+  opts.banner = "Usage: wake directory add-service [options]"
+
+  opts.optional :c, :cluster, "The name of the cluster to find the node in"
+  opts.required :d, :node,    "Name of the node to add the service to"
+  opts.required :n, :name,    "Name of the service to launch"
+  opts.required :i, :image,   "Name of the container image to pull and launch"
+  opts.optional :t, :tags,    "List of tags separated by commas"
+  opts.boolean      :wait,    "Wait until the service is running and registered"
+end
+
+cluster = if parser[:cluster]
+  WakeCluster.get(parser[:cluster])
+else
+  WakeCluster.default
+end
+
+# TODO: add error checking for hosts exists
+
+service = {
+  name: parser[:name],
+  image: parser[:image],
+  tags: parser.fetch(:tags, "").split(",").map(&:strip)
+}
+
+cluster.consul.directory.add_service node: parser[:node], service: service
+
+if parser[:wait]
+  dots do
+    counter = 0
+
+    loop do
+      counter += 1
+      node     = cluster.consul.catalog.node(parser[:node])
+
+      break if node[:services].keys.include?(parser[:name])
+
+      if counter > 60
+        fail("Container was not registered as a service. Waited 5 minutes.")
+      end
+
+      sleep 5
+    end
+  end
+end
+
+puts

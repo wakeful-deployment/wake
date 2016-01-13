@@ -6,14 +6,22 @@ require_relative '../share/wake/dots'
 require_relative '../share/wake/parser'
 require_relative '../share/wake/panic'
 require_relative '../share/wake/azure'
+require_relative '../share/wake/azure/find_public_ip'
+require_relative '../share/wake/azure/port_poller'
+
+TYPES = %w(seed server agent).freeze
 
 parser = OptsParser.parse do |opts|
   opts.banner = "Usage: wake host-images create [options]"
 
-  opts.optional :c, :cluster,  "Cluster to create a host image in"
-  opts.boolean  :d, :default,  "Save as the default host image for the cluster"
-  opts.boolean  :q, :quiet,    "Don't output the host image details"
-  opts.boolean  :k, :keep,     "Keep the vm that got images and don't delete it"
+  opts.optional :c, :cluster, "Cluster to create a host image in"
+  opts.required :t, :type,    "Type of host image to create #{TYPES.inspect}"
+  opts.boolean  :s, :save,    "Save the final uri to local cluster config"
+  opts.boolean  :q, :quiet,   "Don't output the host image details"
+end
+
+unless TYPES.include? parser[:type]
+  panic! "Invalid type argument. Must specify one of these types: #{TYPES.inspect}"
 end
 
 cluster = if parser[:cluster]
@@ -22,23 +30,43 @@ else
   WakeCluster.default
 end
 
+type    = parser[:type]
 vm_name = "baking-#{SecureRandom.hex(8)}"
-
-wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--bare", "--quiet"
-
-wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name
+from    = if type == "seed" then "bare" else "seed" end
 
 vm = Azure::VM.new(resource_group:  cluster.azure.resource_group,
                    name:            vm_name,
                    storage_account: cluster.azure.storage_account)
 
-Wake.log "Capturing to a vhd file..."
+Wake.log "Creating a host from #{from}..."
+wake :hosts, :create, "--cluster", cluster.name, "--name", vm_name, "--from", from, "--public", "--quiet"
+
+ip = Azure::FindPublicIP.call(vm: vm).ip
+
+Azure::PortPoller.call(ip: ip, port: 22)
+
+Wake.log "Setting up the #{type} host..."
+wake :hosts, :setup, "--cluster", cluster.name, "--name", vm_name, "--type", type
+
+# TODO:
+# Wake.log "Powering off the host..."
+# wake :hosts, :power_off, "--cluster", cluster.name, "--name", vm_name
+# Wake.log "Generalizing the host..."
+# wake :hosts, :generalize, "--cluster", cluster.name, "--name", vm_name
+# Wake.log "Capturing to vhd file..."
+# wake :hosts, :capture, "--cluster", cluster.name, "--name", vm_name, "--type", type, "--save"
 
 vhd_uri = nil
 
+Wake.log "Capturing to vhd file..."
+
 dots do
   Azure.resources.vms.power_off!(vm)
+  sleep 10 # azure is slow sometimes
+
   Azure.resources.vms.generalize!(vm)
+  sleep 10 # azure is slow sometimes
+
   Azure.resources.vms.capture!(vm).tap do |a|
     body = a.response.parsed_body
     resource = body["resources"].first
@@ -47,19 +75,18 @@ dots do
 
     Wake.log [:vhd_uri, vhd_uri]
 
-    if parser[:default]
-      cluster.update("azure.host_image_uri", vhd_uri)
-    else
-      puts vhd_uri
+    if parser[:save]
+      name = "#{type}_host_image_uri"
+      cluster.update("azure.#{name}", vhd_uri)
     end
   end
 end
 
-unless parser[:keep]
+begin
   Wake.log "Deleting the vm..."
   wake :hosts, :delete, "--cluster", cluster.name, "--name", vm_name
-end
-
-unless parser[:quiet]
-  puts JSON.pretty_generate({ vhd_uri: vhd_uri })
+ensure
+  unless parser[:quiet]
+    puts JSON.pretty_generate({ vhd_uri: vhd_uri })
+  end
 end

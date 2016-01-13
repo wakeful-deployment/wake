@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# SERVICENAME should be provied by operator when starting services
+
+${CONSULHOST:="127.0.0.1"}
+
+complain_and_exit() {
+  echo "Must provide SERVICENAME env variable"
+  exit 1
+}
+
+test -n "$SERVICENAME" || complain_and_exit
+
+exec envconsul \
+  -consul "$CONSULHOST:8500" \
+  -sanitize \
+  -upcase \
+  -prefix _wakeful/_env/global \
+  -prefix _wakeful/_env/$SERVICENAME \
+  $@
