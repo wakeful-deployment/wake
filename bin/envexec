@@ -2,7 +2,9 @@
 #
 # SERVICENAME should be provied by operator when starting services
 
-${CONSULHOST:="127.0.0.1"}
+if [ -z "$CONSULHOST" ]; then
+  CONSULHOST="127.0.0.1"
+fi
 
 complain_and_exit() {
   echo "Must provide SERVICENAME env variable"
