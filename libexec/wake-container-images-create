@@ -119,11 +119,11 @@ dots do
     end
 
     chdir(tmpdir) do
-      unless File.exists?("./manifest.json")
+      unless Manifest.exists?
         panic! "Must have a manifest.json"
       end
 
-      manifest  = Manifest.new
+      manifest  = Wake::Manifest.new
       platform  = manifest.platform
       app       = manifest.app
       processes = manifest.processes
