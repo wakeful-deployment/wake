@@ -14,6 +14,7 @@ parser = OptsParser.parse do |opts|
   opts.required :n, :name,    "Name of the service to launch"
   opts.required :i, :image,   "Name of the container image to pull and launch"
   opts.optional :t, :tags,    "List of tags separated by commas"
+  opts.optional :p, :ports,   "List of ports seperated by commas"
   opts.boolean      :wait,    "Wait until the service is running and registered"
 end
 
@@ -25,9 +26,26 @@ end
 
 # TODO: add error checking for hosts exists
 
+def make_ports(ports_string)
+  ports_string.split(",").map(&:strip).map do |port_string|
+    udp = port_string.end_with?("/udp")
+    port_string.gsub!(%r{/udp$}, '')
+
+    incoming, outgoing = port_string.split("/")
+    outgoing ||= incoming
+
+    {
+      incoming: incoming,
+      outgoing: outgoing,
+      udp: udp
+    }
+  end
+end
+
 service = {
   name: parser[:name],
   image: parser[:image],
+  ports: make_ports(parser[:ports] || "")
   tags: parser.fetch(:tags, "").split(",").map(&:strip)
 }
 
