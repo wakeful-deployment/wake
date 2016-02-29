@@ -8,8 +8,8 @@ Wake is an end-to-end solution for managing applications and application
 environments from version control commit to running in production. Wake uses
 other pluggable infrastructure frameworks such as Kubernetes or Docker Swarm
 to power many of its features. In addition to the functionality that these
-frameworks provider, Wake also offers other pluggable abstractions over IaaS
-providers, logging and other common infrastructure needs.
+frameworks provide, wake also offers other pluggable abstractions over IaaS
+providers, logging, and other common infrastructure needs.
 
 # Prereqs
 
@@ -24,15 +24,56 @@ You may also want to add wake's bin directory to your path for ease of use.
 
 # Terms
 
-**cluster**: a collection of nodes (servers) managed together as a unit
+**cluster**: a collection of nodes (hosts) managed together as a unit
 
-**node**: a server in the cluster
+**node**: a host in the cluster
 
 **process**: the smallest unit of work (e.g. a web server or background job)
 
 **application**: is a list of related processes defined by a `manifest.json`
 
 **service**: is the collection of all running instances of a process
+
+# Concepts
+
+wake is broken up into these concepts:
+
+**cli**: implimentation of the command line interface
+
+**build**: responsible for building and pushing docker images and for
+creating build pipelines
+
+**iaas**: libraries for different iaas providers that expose a unified
+interface
+
+**infrastructure**: commands for interacting with iaas actions and
+security of vms
+
+**secrets**: implementations for different stores for securely getting
+and setting application secrets
+
+**orchestration**: libraries for different orchestration frameworks like
+kubernetes and swarm
+
+## Orchestration
+
+Required features for an orchestration framework are:
+
+* anti-affinity
+* dns
+* load balancing (internal and external)
+* upgrade deployment strategy (replace/rollback)
+
+# Opinions
+
+wake is opinionated about:
+
+* cluster bootstrap and scaling with iaas cli/http apis
+* log aggregation with logstash
+* secrets management convention
+* ssh access
+* etcd?
+* building docker images a certain way
 
 # CLI conventions
 
@@ -89,59 +130,9 @@ the name again to prevent the confirmation prompt._
 >
 > There are no environments with wake. Make a new cluster with a different name.
 
-# Hosts
-
-## Create a new bare host from ubuntu
-
-```sh
-$ wake hosts create --bare --name test-host-1
-```
-
-## Create a new host using the default host image for a cluster
-
-For the default cluster:
-
-```sh
-$ wake hosts create --name test-host-1
-```
-
-For a specific cluster:
-
-```sh
-$ wake hosts create --name test-host-1 --cluster other-cluster
-```
-
-Wake will actually provide a random name for you if you like:
-
-```sh
-$ wake hosts create
-```
-
-To connect to a host after it's created:
-
-```sh
-$ wake hosts create --connect
-```
-
-## Connecting to a host
-
-To connect to a host by it's name:
-
-```sh
-$ wake hosts connect -n test-host-1
-```
-
-To run a command on a host:
-
-```sh
-$ wake hosts run -n test-host-1 -c 'uptime'
-```
-
 # Application conventions
 
-* Every process must listen on port 8000 for `/_health`
-* Every app must declare it's dependencies so the proxy container on the
-  host will fill in the correct ips and dns
+**Every process must listen on port 8000 for `/_health`**
 
 # `manifest.json`
 
@@ -186,50 +177,29 @@ Here are some examples:
 }
 ```
 
-# Containers
+# docker images
 
-We build the docker containers by going through a few steps:
+wake is opinionated about how docker images are created. wake includes
+pre-built `Dockerfile`s for different platforms. If your project does
+not include a `Dockerfile` then one will be provided during build.
 
-1. Detect the platform type
-2. Build platfrom-compile container
-3. For each process, use a process-application-compile < platform-compile container to:
-   1. Compile a binary of the application process into /tmp/app.gz
-   2. Render a Dockerfile that inherits from the application-release
-   3. Build process-application-release:sha
-   4. Extract /tmp/app.gz into the final container as /opt/app/*
-   5. Copy /tmp/run to /opt/run
-
-Yes, we build the final process-application-release:sha container inside
-the process-application-compile one. This means that our compiled app is
-compiled in linux and packaged up in linux. It also means it's easy to
-copy files into the final container with simple ADD's and stuff like
-that.
-
-_NOTE: **Current status**: only creating the process-application-compile
-container. We will eventually create the -release one, but it is
-currently not a priority._
-
-## OK, what's the command to build a container?
-
-First change into the application's directory where the `manifest.json`
-is, then:
+To build and push a docker image:
 
 ```sh
-$ wake containers create -r b5aedadd
+$ cd path/to/project
+$ wake build
 ```
 
-If you want to push your containers to your docker hub organization,
-first create the repo over on docker hub, then append `--push`:
+To build an image for a certain commit then specify the sha or branch:
 
 ```sh
-$ wake containers create -r $(git rev-parse --verify HEAD | cut -c1-9) --push
+$ wake build -r b5aedadd
 ```
 
-## Azure
+# Deploy
 
-* Service principal is created and has the correct roles
+Images are deployed with `wake deploy`.
 
-_NOTE: There will be a tool to help setup a service principal
-eventually. In the meantime please consult the azure ruby sdk README
-for the most up to date information._
+# Scaling
 
+Services are scaled with `wake scale`.
