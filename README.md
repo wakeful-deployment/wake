@@ -59,8 +59,11 @@ kubernetes and swarm
 
 Required features for an orchestration framework are:
 
-* anti-affinity
-* dns
+* anti-affinity: two processes of the same application shouldn't be on
+  the same vm
+* dns:
+    * master nodes should be registered in dns for easy discovery
+    * services should be auto-addressable by dns names
 * load balancing (internal and external)
 * upgrade deployment strategy (replace/rollback)
 
@@ -68,12 +71,12 @@ Required features for an orchestration framework are:
 
 wake is opinionated about:
 
+* immutable infrastructure
 * cluster bootstrap and scaling with iaas cli/http apis
-* log aggregation with logstash
-* secrets management convention
+* log aggregation
+* secrets management
 * ssh access
-* etcd?
-* building docker images a certain way
+* building docker images
 
 # CLI conventions
 
@@ -95,7 +98,7 @@ the `wake clusters` command.
 ## Create a cluster
 
 ```sh
-$ wake clusters create --name wake-test-1 --iaas azure --location eastus
+$ wake clusters create --name wake-test-1 --iaas azure --location eastus --orchestrator kubernetes
 ```
 
 _NOTE: azure is the only supported IaaS provider at this time._
@@ -203,3 +206,7 @@ Images are deployed with `wake deploy`.
 # Scaling
 
 Services are scaled with `wake scale`.
+
+# Secrets
+
+Secrets are configured with `wake secrets`.
