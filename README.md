@@ -1,55 +1,38 @@
-# wake deploys
+# Wake
 
-Wake packages, deploys, and manages applications and application
-environemnts.
+Wake packages, deploys, manages and orchestrates applications and application environments.
+
+## Wake vs. Other Infrastructure Frameworks
+
+Wake is an end-to-end solution for managing applications and application
+environments from version control commit to running in production. Wake uses
+other pluggable infrastructure frameworks such as Kubernetes or Docker Swarm
+to power many of its features. In addition to the functionality that these
+frameworks provider, Wake also offers other pluggable abstractions over IaaS
+providers, logging and other common infrastructure needs.
 
 # Prereqs
 
 * docker
 * docker-machine
 
-_NOTE: On Windows, you'll need to ensure that OpenSSL has access to a certificate 
+_NOTE: On Windows, you'll need to ensure that OpenSSL has access to a certificate
 authority bundle.  Download the [Mozilla Certificat bundle](https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt)
 locally, and set the `SSL_CERT_FILE` environment variable to reference this file._
 
 You may also want to add wake's bin directory to your path for ease of use.
 
-## Azure
-
-* Service principal is created and has the correct roles
-
-_NOTE: There will be a tool to help setup a service principal
-eventually. In the meantime please consult the azure ruby sdk README
-for the most up to date information._
-
 # Terms
 
-**host**: a virtual server running a docker host
+**cluster**: a collection of nodes (servers) managed together as a unit
 
-**host image**: a virtual server disk image pre-setup and ready to run
-services
+**node**: a server in the cluster
 
-**node**: a host that is registered into consul
+**process**: the smallest unit of work (e.g. a web server or background job)
 
-**cluster**: is a collection of hosts/nodes managed together as a unit
+**application**: is a list of related processes defined by a `manifest.json`
 
-**application**: is a list of processes defined by a `manifest.json` and
-stored in a git repo
-
-**service**: is a running application process hosted in a container on
-a host in a cluster and registered in consul
-
-**container**: a running docker container on a host for a service
-
-**container-image**: a fetchable docker image compiled and ready to run
-
-# WTF???
-
-Wake packages application's processes into containers which can be
-deployed into a cluster as a service. Wake uses consul to keep track of
-nodes and services in a cluster. Basically a cluster is a consul master
-with 0 or more registered nodes and 0 more registered services on those
-nodes.
+**service**: is the collection of all running instances of a process
 
 # CLI conventions
 
@@ -63,53 +46,18 @@ Every command supports these three flags:
 
 # Cluster
 
-A cluster is a collection of hosts (nodes) and application processess
-(services).  A cluster has one consul database which is used to store
-and validate the details of the cluster. Which apps should be runing
-where, how many nodes there are, and all other cluster related questions
-should be answerable from the consul database.
-
-The consul database is also used to store secrets that are injected in
-the env of a service during boot.
+A cluster is a logical collection of nodes.
 
 Clusters are kept track of in `~/.wake/clusters` and can be managed with
-the `wake clusters` command. Joining a cluster is as easy as finding the
-IP of the ssh proxy and having permission to send commands and queries
-to it.
+the `wake clusters` command.
 
 ## Create a cluster
 
 ```sh
-$ wake clusters create --name wake-test-1 --iaas azure --location eastus --default
+$ wake clusters create --name wake-test-1 --iaas azure --location eastus
 ```
 
 _NOTE: azure is the only supported IaaS provider at this time._
-
-This will:
-
-1. create a resource group
-2. create a storage account
-3. create a vnet
-4. create a subnet
-5. create three host images
-6. create three consul servers
-7. create one ssh proxy with a public ip address and record it to the
-   local clusters file
-8. set this cluster as the default cluster
-
-- - -
-
-_NOTE: Everything after here is not finished._
-
-- create awake public ip
-- launch logstash vm
-- launch graphite vm
-- launch rsyslog vm
-- launch awake vm
-- ...
-
-_NOTE: this is not finalized yet, but it's a good idea of where we are
-going._
 
 ## List known clusters
 
@@ -137,10 +85,9 @@ _NOTE: `wake-clusters-delete` will ask you to confirm the name of the
 cluster before proceeding. It's possible to pass `--pre-confirm` with
 the name again to prevent the confirmation prompt._
 
-# Environments
-
-There are no environments with wake. Make a new cluster with a different
-name.
+> *Environments*
+>
+> There are no environments with wake. Make a new cluster with a different name.
 
 # Hosts
 
@@ -277,4 +224,12 @@ first create the repo over on docker hub, then append `--push`:
 ```sh
 $ wake containers create -r $(git rev-parse --verify HEAD | cut -c1-9) --push
 ```
+
+## Azure
+
+* Service principal is created and has the correct roles
+
+_NOTE: There will be a tool to help setup a service principal
+eventually. In the meantime please consult the azure ruby sdk README
+for the most up to date information._
 
